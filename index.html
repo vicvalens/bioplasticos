@@ -54,6 +54,7 @@ header{max-width:1280px;margin:14px auto 0;padding:0 max(4vw,14px)}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 .nogl{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:#1c1c1c}
 .vhead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin:16px 0 6px}
+.vbtns{display:flex;gap:8px;flex-wrap:wrap}a.btn{display:inline-flex;align-items:center;text-decoration:none;color:var(--ink)}
 .verdict{font-family:"Inter Tight",system-ui,sans-serif;font-weight:600;letter-spacing:-.015em;font-size:clamp(21px,2.4vw,28px);line-height:1.15;margin:0;flex:1 1 260px}
 .warn{margin:0;padding:0;list-style:none}
 .warn li{margin:6px 0;padding:8px 14px;border-radius:14px;background:light-dark(#fdf6e7,#2c2414);font-size:15px}
@@ -174,7 +175,7 @@ td .btn{min-height:36px;padding:4px 12px;font-size:14px}
 </div>
 </div>
 <div class="res" aria-live="polite">
-<div class="vhead"><p class="verdict" id="verdict"></p><button class="btn main" id="ftOpen">Ficha técnica</button></div>
+<div class="vhead"><p class="verdict" id="verdict"></p><div class="vbtns"><a class="btn" id="arLink" href="https://vicvalens.github.io/bioplasticos/ar/" target="_blank" rel="noopener">Ver en AR</a><button class="btn main" id="ftOpen">Ficha técnica</button></div></div>
 <ul class="warn" id="warn"></ul>
 <div class="meters" id="meters"></div>
 </div>
@@ -276,7 +277,7 @@ td .btn{min-height:36px;padding:4px 12px;font-size:14px}
 <p class="note">Modelo didáctico aproximado, basado en proporciones de recetarios abiertos. Los resultados reales cambian con la humedad, el grosor y los insumos: compara la predicción con tu muestra real.</p>
 </section>
 </div>
-<footer class="foot">Valens · v1.20</footer>
+<footer class="foot"><a href="https://github.com/vicvalens" style="color:inherit">Valens</a> · v1.21</footer>
 
 <div class="modal" id="modal" hidden><div class="card" role="dialog" aria-modal="true" aria-labelledby="ftTitle">
 <div id="ficha"></div>
@@ -706,6 +707,10 @@ $('ficha').dataset.txt=[`FICHA TÉCNICA · ${name} · ${date}`,words(r,st),'',..
 $('modal').hidden=false;$('modal').scrollTop=0;$('ftClose').focus({preventScroll:true});
 }
 $('ftOpen').addEventListener('click',openFicha);
+function arHref(){const k=['base','g','w','gl','v','fil','fillT','pig','pigT','side'],o={s:{},sh:shape==='mio'?'lamina':shape,ing:mine.filter(i=>i.id===st.fillT||i.id===st.pigT)};k.forEach(x=>o.s[x]=st[x]);
+return 'https://vicvalens.github.io/bioplasticos/ar/?r='+encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(o)))))}
+['pointerdown','focus','mouseenter'].forEach(ev=>$('arLink').addEventListener(ev,()=>{$('arLink').href=arHref()}));
+$('arLink').addEventListener('click',()=>{$('arLink').href=arHref();if(shape==='mio')toast('Tu modelo 3D no viaja a AR; ahí verás la lámina con tu receta.')});
 $('ftClose').addEventListener('click',()=>{$('modal').hidden=true;$('ftOpen').focus()});
 $('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').hidden=true});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('modal').hidden=true});
