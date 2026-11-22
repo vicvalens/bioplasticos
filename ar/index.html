@@ -6,6 +6,7 @@
 <meta name="author" content="Valens">
 <title>Simulador de bioplásticos · AR</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe-v1.5.0.min.js"></script>
 <script>window.AFRAME||document.write('<script src="https://aframe.io/releases/1.5.0/aframe.min.js"><\/script>')</script>
@@ -28,6 +29,8 @@ input[type=range]{width:100%;accent-color:#e0951a;height:30px;margin:0}
 .row button,.row a{min-height:40px;border:1px solid #e6e5e3;border-radius:999px;background:#fff;padding:0 14px;font:600 14px "Inter Tight",sans-serif;cursor:pointer;color:#1c1c1c;text-decoration:none;display:inline-flex;align-items:center}
 .row button[aria-pressed=true]{background:#5c5c59;color:#fff;border-color:#5c5c59}
 .row a{margin-left:auto}
+.row .ql{background:#e0951a;border-color:#e0951a;color:#2b1a00}.row .ql:disabled{opacity:.6}
+#mv{position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0;pointer-events:none}
 #hint{font-size:13px;color:#6b6b6b;margin:8px 0 0}
 .foot{font-size:12px;color:#9a9a96;margin-top:6px}.foot a{color:inherit}
 #ui.min .body{display:none}
@@ -48,11 +51,12 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 </div>
 <label for="gl" style="margin-top:8px">Glicerina<output id="glo"></output></label>
 <input type="range" id="gl" min="0" max="20" step="0.1">
-<div class="row"><button id="spin" aria-pressed="true">Girar</button><button id="big" aria-pressed="false">Ver ×3</button><a href="../">Volver al simulador</a></div>
+<div class="row"><button id="ql" class="ql" hidden>Ver en mi espacio</button><button id="spin" aria-pressed="true">Girar</button><button id="big" aria-pressed="false">Ver ×3</button><a href="../">Volver al simulador</a></div>
 <p id="hint">En Android con Chrome toca AR, apunta a una mesa y toca la pantalla para colocar la pieza a tamaño real. En visores Quest toca VR.</p>
 <p class="foot"><a href="https://github.com/vicvalens">Valens</a> · v1.21</p>
 </div>
 </div></div>
+<model-viewer id="mv" ar ar-modes="quick-look" ar-scale="fixed" loading="eager" aria-hidden="true"></model-viewer>
 
 <script>
 {
@@ -157,7 +161,7 @@ $('fill').innerHTML=Object.entries(F).map(([k,f])=>`<option value="${k}">${esc(f
 $('pig').innerHTML=Object.entries(G).map(([k,f])=>`<option value="${k}">${esc(f.n)}</option>`).join('');
 function sync(){$('base').value=st.base;$('shape').value=st.shape;$('fill').value=st.fillT;$('pig').value=st.pigT;
 const mx=Math.max(1,Math.round(P[st.base].max*st.g*1.6*10)/10);$('gl').max=mx;$('gl').value=st.gl;$('glo').textContent=`${st.gl.toLocaleString('es-MX',{maximumFractionDigits:1})} g`}
-const upd=()=>{sync();el.setAttribute('bioplastico','v',++ver)};
+const upd=()=>{sync();el.setAttribute('bioplastico','v',++ver);if(typeof prepQL==='function')prepQL()};
 $('imp').hidden=!imported;
 $('base').addEventListener('change',e=>{st.base=e.target.value;Object.assign(st,P[st.base].def);upd()});
 $('shape').addEventListener('change',e=>{st.shape=e.target.value;upd()});
@@ -170,6 +174,44 @@ ui.addEventListener('beforexrselect',e=>e.preventDefault());
 const rig=$('rig');
 scene.addEventListener('enter-vr',()=>{rig.setAttribute('rotation','0 0 0');rig.setAttribute('position','0 0 .3');if(scene.is('ar-mode')){scene.removeAttribute('background');scene.object3D.background=null;$('hint').textContent='Apunta a una superficie plana y toca para colocar la pieza.'}});
 scene.addEventListener('exit-vr',()=>{scene.setAttribute('background','color:#f3f3f1');rig.setAttribute('rotation','-30 0 0');rig.setAttribute('position','0 1.32 .02')});
+/* exportador GLB mínimo para Quick Look (iPhone) */
+async function toGLB(root){const T=THREE,views=[],accs=[],meshes=[],mats=[],texs=[],imgs=[],nodes=[],parts=[],matMap=new Map();let off=0;
+const push=(arr,target)=>{const b=arr instanceof Uint8Array?arr:new Uint8Array(arr.buffer,arr.byteOffset,arr.byteLength);const pad=(4-off%4)%4;if(pad){parts.push(new Uint8Array(pad));off+=pad}
+const v={buffer:0,byteOffset:off,byteLength:b.byteLength};if(target)v.target=target;views.push(v);parts.push(b);off+=b.byteLength;return views.length-1};
+const acc=(arr,type,ct,count,target,extra)=>{accs.push(Object.assign({bufferView:push(arr,target),componentType:ct,count,type},extra||{}));return accs.length-1};
+const ry=root.rotation.y;root.rotation.y=0;root.updateMatrixWorld(true);const inv=new T.Matrix4().copy(root.matrixWorld).invert(),list=[];
+root.traverse(o=>{if(o.isMesh&&o.geometry&&o.visible)list.push({o,rel:new T.Matrix4().multiplyMatrices(inv,o.matrixWorld)})});root.rotation.y=ry;
+for(const{o,rel}of list){const g=o.geometry,nm=new T.Matrix3().getNormalMatrix(rel),P=g.attributes.position,N=g.attributes.normal,U=g.attributes.uv,C=g.attributes.color,n=P.count,v=new T.Vector3();
+const pos=new Float32Array(n*3),mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9];let nor=null;if(N)nor=new Float32Array(n*3);
+for(let i=0;i<n;i++){v.fromBufferAttribute(P,i).applyMatrix4(rel);pos[i*3]=v.x;pos[i*3+1]=v.y;pos[i*3+2]=v.z;for(let k=0;k<3;k++){const c=pos[i*3+k];if(c<mn[k])mn[k]=c;if(c>mx[k])mx[k]=c}
+if(N){v.fromBufferAttribute(N,i).applyMatrix3(nm).normalize();nor[i*3]=v.x;nor[i*3+1]=v.y;nor[i*3+2]=v.z}}
+const attrs={POSITION:acc(pos,'VEC3',5126,n,34962,{min:mn,max:mx})};if(nor)attrs.NORMAL=acc(nor,'VEC3',5126,n,34962);
+if(U){const uv=new Float32Array(n*2);for(let i=0;i<n;i++){uv[i*2]=U.getX(i);uv[i*2+1]=1-U.getY(i)}attrs.TEXCOORD_0=acc(uv,'VEC2',5126,n,34962)}
+if(C){const c=new Float32Array(n*3);for(let i=0;i<n;i++){c[i*3]=Math.min(1,C.getX(i));c[i*3+1]=Math.min(1,C.getY(i));c[i*3+2]=Math.min(1,C.getZ(i))}attrs.COLOR_0=acc(c,'VEC3',5126,n,34962)}
+const prim={attributes:attrs};if(g.index){const I=g.index.array,big=n>65535;prim.indices=acc(big?new Uint32Array(I):new Uint16Array(I),'SCALAR',big?5125:5123,I.length,34963)}
+const m=o.material;if(!matMap.has(m)){const pbr={baseColorFactor:[m.color?m.color.r:1,m.color?m.color.g:1,m.color?m.color.b:1,m.opacity??1],metallicFactor:m.metalness??0,roughnessFactor:m.roughness??1};
+if(m.map&&m.map.image&&m.map.image.toBlob){const blob=await new Promise(r=>m.map.image.toBlob(r,'image/png'));imgs.push({bufferView:push(new Uint8Array(await blob.arrayBuffer())),mimeType:'image/png'});texs.push({source:imgs.length-1});pbr.baseColorTexture={index:texs.length-1}}
+const mat={pbrMetallicRoughness:pbr,doubleSided:true,alphaMode:m.transparent&&(m.opacity??1)<.99?'BLEND':'OPAQUE'};
+if(m.emissive&&m.emissiveIntensity>0&&!m.map)mat.emissiveFactor=[m.emissive.r,m.emissive.g,m.emissive.b].map(x=>Math.min(1,x*m.emissiveIntensity));
+mats.push(mat);matMap.set(m,mats.length-1)}prim.material=matMap.get(m);
+meshes.push({primitives:[prim]});nodes.push({mesh:meshes.length-1})}
+const pad=(4-off%4)%4;if(pad){parts.push(new Uint8Array(pad));off+=pad}
+const json={asset:{version:'2.0',generator:'Simulador de bioplasticos · Valens'},scene:0,scenes:[{nodes:nodes.map((_,i)=>i)}],nodes,meshes,materials:mats,accessors:accs,bufferViews:views,buffers:[{byteLength:off}]};
+if(texs.length){json.textures=texs;json.images=imgs}
+let js=new TextEncoder().encode(JSON.stringify(json));const jp=(4-js.length%4)%4;if(jp){const t=new Uint8Array(js.length+jp);t.set(js);t.fill(32,js.length);js=t}
+const out=new Uint8Array(12+8+js.length+8+off),dv=new DataView(out.buffer);dv.setUint32(0,0x46546C67,true);dv.setUint32(4,2,true);dv.setUint32(8,out.length,true);
+dv.setUint32(12,js.length,true);dv.setUint32(16,0x4E4F534A,true);out.set(js,20);let p=20+js.length;dv.setUint32(p,off,true);dv.setUint32(p+4,0x004E4942,true);p+=8;for(const b of parts){out.set(b,p);p+=b.length}
+return new Blob([out],{type:'model/gltf-binary'})}
+
+/* Quick Look en iPhone y iPad */
+const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1),mv=$('mv'),qb=$('ql');let qlT=0,qlUrl=null;
+function prepQL(){if(!isIOS||!window.AFRAME)return;clearTimeout(qlT);qb.disabled=true;qb.textContent='Preparando…';qlT=setTimeout(async()=>{try{const c=el.components.bioplastico;if(!c)return;
+const blob=await toGLB(c.holder);if(qlUrl)URL.revokeObjectURL(qlUrl);qlUrl=URL.createObjectURL(blob);mv.src=qlUrl}catch(e){qb.textContent='No disponible'}},450)}
+mv.addEventListener('load',()=>{qb.disabled=false;qb.textContent='Ver en mi espacio'});
+mv.addEventListener('error',()=>{qb.textContent='No disponible'});
+qb.addEventListener('click',()=>{if(mv.canActivateAR)mv.activateAR();else $('hint').textContent='Quick Look no está disponible en este navegador. Abre la página en Safari.'});
+if(isIOS){qb.hidden=false;$('hint').textContent='En iPhone toca «Ver en mi espacio» y la pieza aparecerá a tamaño real sobre tu mesa con Quick Look de Apple.'}
+el.addEventListener('componentchanged',e=>{if(e.detail.name==='bioplastico')prepQL()});
 sync();if(!window.AFRAME)$('info').textContent='No se pudo cargar el visor 3D. Revisa tu conexión a internet y recarga la página.';else if(scene.hasLoaded)upd();else scene.addEventListener('loaded',upd);
 }
 </script>
