@@ -107,4 +107,4 @@ Creado por **Valens**.
 
 ---
 
-Valens · v1.20
+Valens · v1.22
