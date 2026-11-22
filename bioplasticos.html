@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="Vic Valens">
+<title>Simulador de bioplásticos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: estudio de producto: sobrio, preciso, táctil.
+   IDEA: fondo infinito de fotografía de catálogo; el material como objeto de diseño.
+   PICTURE: lámina o pieza 3D con luz de estudio, luz de fondo, comparador lado a lado.
+   COLOUR and TYPE: blancos y grises neutros, carbón para acciones, color solo en el material y los datos; Inter Tight.
+   LAYOUT: visor grande y fijo; receta, usos, composición, microscopio y muestras en pestañas. */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#151515);--ink:light-dark(#1c1c1c,#efefed);--soft:light-dark(#6b6b6b,#a8a8a5);--line:light-dark(#e6e5e3,#333331);--panel:light-dark(#f6f6f5,#1f1f1e);--jam:light-dark(#5c5c59,#d9d9d6);--jamS:light-dark(#5c5c59,#d9d9d6);--acc:#e0951a;--accInk:light-dark(#7a4a05,#f5c46e);--accVal:light-dark(#b56f06,#f0b44c);--accBg:light-dark(#fdf0d8,#3a2a10);--accLine:light-dark(#f0c06a,#7a5a20);--onS:light-dark(#ffffff,#151515);--amb:#f0a81c}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Inter Tight",system-ui,sans-serif;overflow-x:clip}
+h1,h2{font-family:"Inter Tight",system-ui,sans-serif;font-weight:600;line-height:1.05;letter-spacing:-.02em;text-wrap:balance;margin:0}
+h1{font-size:clamp(26px,3.6vw,38px)}h2{font-size:22px;margin:0 0 10px}
+header{max-width:1280px;margin:14px auto 0;padding:0 max(4vw,14px)}
+.hd{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:18px 22px;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px}
+.hd p{margin:0;color:var(--soft);max-width:60ch}
+.app{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:28px;max-width:1280px;margin:0 auto;padding:22px max(4vw,14px) 56px}
+.stage{position:sticky;top:12px;align-self:start}
+.view{position:relative;height:min(64vh,580px);border-radius:24px;overflow:hidden;background:#f3f3f1;transition:background .4s}
+.view.lit{background:#262625}
+.view canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.hud{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;pointer-events:none;font-size:14px;color:#1c1c1c}
+.hud b{background:rgba(255,255,255,.9);padding:5px 12px;border-radius:999px;font-weight:600;white-space:nowrap}
+.hud .hr{display:flex;gap:6px;pointer-events:auto}
+#hq{min-height:40px;border:0;border-radius:999px;background:rgba(255,255,255,.92);color:#1c1c1c;padding:0 12px;font:600 14px "Inter Tight",sans-serif;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+#hq[aria-pressed=false]{color:#6b6b6b}
+.mio{position:absolute;top:58px;right:10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.mio[hidden]{display:none}
+.mio button,.mio select{min-height:36px;border:0;border-radius:999px;background:rgba(255,255,255,.92);color:#1c1c1c;padding:0 12px;font:600 13px "Inter Tight",sans-serif;cursor:pointer;width:auto;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.hud select{pointer-events:auto;width:auto;min-height:40px;font-size:15px;font-weight:600;border:0;border-radius:999px;background:rgba(255,255,255,.92);color:#1c1c1c;padding:0 14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.cmp{position:absolute;left:10px;right:10px;bottom:72px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#1c1c1c}
+.cmp span{background:rgba(255,255,255,.9);padding:5px 12px;border-radius:999px;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp button{min-height:36px;border:0;border-radius:999px;background:rgba(255,255,255,.9);color:#1c1c1c;padding:0 12px;font:600 13px "Inter Tight",sans-serif;cursor:pointer}
+.cmp[hidden]{display:none}
+.bar{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.9);backdrop-filter:blur(6px);border-radius:999px;padding:5px;color:#1c1c1c}
+.bar input[type=range]{flex:1;accent-color:#5c5c59;height:36px;margin:0 4px}
+.bar button{min-height:44px;border:0;border-radius:999px;padding:0 14px;font:600 15px "Inter Tight",sans-serif;cursor:pointer;white-space:nowrap;background:#ecebe9;color:#1c1c1c}
+.bar button[hidden],.bar input[hidden]{display:none}
+#play{width:44px;padding:0}
+#light[aria-pressed=true]{background:var(--amb);color:#1c1c1c}
+#ruler[aria-pressed=true]{background:#5c5c59;color:#fff}
+.meas{position:absolute;left:10px;top:58px;background:rgba(255,255,255,.92);color:#1c1c1c;padding:6px 12px;border-radius:999px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.meas[hidden]{display:none}
+#bend,#reset{position:relative;overflow:hidden;background:#5c5c59;color:#fff;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;margin-left:auto}
+#bend i{position:absolute;left:0;bottom:0;height:4px;background:var(--amb);width:0}
+.toast{position:absolute;left:50%;top:104px;transform:translate(-50%,-8px);background:#1c1c1c;color:#fff;padding:10px 16px;border-radius:999px;font-size:15px;max-width:88%;text-align:center;opacity:0;transition:.25s;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:#1c1c1c}
+.vhead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px;margin:16px 0 6px}
+.verdict{font-family:"Inter Tight",system-ui,sans-serif;font-weight:600;letter-spacing:-.015em;font-size:clamp(21px,2.4vw,28px);line-height:1.15;margin:0;flex:1 1 260px}
+.warn{margin:0;padding:0;list-style:none}
+.warn li{margin:6px 0;padding:8px 14px;border-radius:14px;background:light-dark(#fdf6e7,#2c2414);font-size:15px}
+.meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:14px}
+.m{background:var(--panel);border-radius:16px;padding:12px 14px}
+.m b{display:block;font-size:22px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.m span{font-size:14px;color:var(--soft)}
+.barm{height:6px;background:var(--line);border-radius:3px;margin-top:6px}.barm i{display:block;height:100%;background:var(--jam);border-radius:3px;transition:width .3s}
+.tabs{display:flex;gap:2px;overflow-x:auto;background:var(--panel);border-radius:999px;padding:4px;margin-bottom:18px;scrollbar-width:none}
+.tabs button{flex:none;min-height:40px;border:0;border-radius:999px;background:none;color:var(--soft);font:600 14px "Inter Tight",sans-serif;padding:0 10px;cursor:pointer}
+.tabs button[aria-selected=true]{color:var(--ink);background:var(--bg);box-shadow:inset 0 -2px 0 var(--acc),0 1px 4px rgba(0,0,0,.1)}
+.panel[hidden]{display:none}
+.bases{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+button,select{font:inherit;color:inherit}
+.bases button,.btn{min-height:44px;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 14px;cursor:pointer;font-weight:600}
+.bases button[aria-pressed=true]{background:var(--accBg);border-color:var(--accLine);color:var(--accInk)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--amb);outline-offset:2px}
+.row{margin:12px 0}
+.row label{display:flex;justify-content:space-between;gap:8px;font-weight:600;font-size:15px}
+.row output{font-variant-numeric:tabular-nums;color:var(--accVal);white-space:nowrap}
+input[type=range]{width:100%;height:32px;accent-color:var(--acc)}
+select{width:100%;min-height:44px;font-size:16px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:0 10px}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.presets .btn{flex:1 1 90px;font-size:14px}
+.donuts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+figure{margin:0;text-align:center}figcaption{font-weight:600;font-size:15px}
+.donuts svg{width:100%;max-width:190px}
+.legend{list-style:none;padding:0;margin:12px 0;display:grid;gap:6px}
+.legend li{display:flex;align-items:center;gap:8px;font-size:15px}
+.legend i{width:14px;height:14px;border-radius:4px;flex:none}
+.legend em{margin-left:auto;font-style:normal;font-variant-numeric:tabular-nums;color:var(--soft);white-space:nowrap}
+.micro{position:relative;height:300px;border-radius:20px;overflow:hidden;background:light-dark(#f8f8f7,#1f1f1e)}
+.micro canvas{position:absolute;inset:0;width:100%;height:100%}
+.mine{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}.mine h3{font:600 17px "Inter Tight",sans-serif;margin:0 0 8px}
+.newing summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center;color:var(--accInk)}
+input[type=color]{width:100%;height:44px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:4px;cursor:pointer}
+.txt{width:100%;min-height:44px;font-size:16px;border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--panel);color:var(--ink)}
+.ingl{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.ingl span{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 10px;font-size:14px}.ingl small{color:var(--soft)}
+.ingl button{border:0;background:none;cursor:pointer;color:var(--soft);font-size:18px;min-width:32px;min-height:32px}.ingl .sw{margin:0}
+.err{color:light-dark(#b3261e,#f2a29c);font-size:14px;margin:6px 0 0}.err:empty{display:none}
+[hidden]{display:none!important}
+.foot{max-width:1280px;margin:0 auto;padding:0 max(4vw,14px) 32px;color:var(--soft);font-size:13px}
+.note{font-size:14px;color:var(--soft);margin-top:10px}
+ol{padding-left:22px;margin:0}ol li{margin:8px 0}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td .btn{min-height:36px;padding:4px 12px;font-size:14px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.tools input{flex:1 1 160px;min-height:44px;font-size:16px;border:1px solid var(--line);border-radius:999px;padding:0 14px;background:var(--panel);color:var(--ink)}
+.btn.main{background:var(--acc);color:var(--accOn,#2b1a00);border-color:var(--acc)}
+.uses{display:grid;gap:12px}
+.use{border:1px solid var(--line);border-radius:20px;padding:14px 16px}
+.use h3{font:600 17px "Inter Tight",sans-serif;margin:0;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.use p{margin:6px 0;font-size:15px}.use ul{margin:4px 0 10px;padding-left:18px;font-size:14px;color:var(--soft)}
+.chip{flex:none;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.chip.ok{background:var(--accBg);color:var(--accInk)}.chip.no{background:var(--panel);color:var(--soft)}
+.flow{list-style:none;padding:0;margin:0 0 20px;display:grid;gap:8px}
+.flow li{background:var(--panel);border-radius:16px;padding:10px 14px;font-size:15px}.flow b{display:block;color:var(--accInk)}
+.m .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.use .btn{border-color:var(--accLine);color:var(--accInk)}
+.side h2{color:var(--accInk)}
+.side .micro{box-shadow:inset 0 0 0 1px var(--accLine)}
+.side{--accOn:#2b1a00}
+.side[data-tab=usos]{--acc:#c8643c;--accOn:#fff;--accInk:light-dark(#7a3216,#f2a284);--accVal:light-dark(#a3482a,#f2a284);--accBg:light-dark(#fbe9e1,#3a1f15);--accLine:light-dark(#eeb49c,#7a3a22)}
+.side[data-tab=comp]{--acc:#3f8fd2;--accOn:#fff;--accInk:light-dark(#0c447c,#9cc8f0);--accVal:light-dark(#185fa5,#9cc8f0);--accBg:light-dark(#e6f1fb,#13283d);--accLine:light-dark(#a9cdef,#2b5a85)}
+.side[data-tab=micro]{--acc:#7f77dd;--accOn:#fff;--accInk:light-dark(#3c3489,#c3bdf5);--accVal:light-dark(#534ab7,#c3bdf5);--accBg:light-dark(#eeedfe,#25224a);--accLine:light-dark(#c4c0f2,#4a4490)}
+.side[data-tab=proc]{--acc:#8a8780;--accOn:#fff;--accInk:light-dark(#444441,#d3d1c7);--accVal:light-dark(#5f5e5a,#d3d1c7);--accBg:light-dark(#f1efe8,#2a2a28);--accLine:light-dark(#d3d1c7,#555553)}
+.side[data-tab=muestras]{--acc:#5f8f6e;--accOn:#fff;--accInk:light-dark(#27492f,#a9d4b5);--accVal:light-dark(#3b6d4a,#a9d4b5);--accBg:light-dark(#e6f1e9,#1c3324);--accLine:light-dark(#b3d3bc,#3c6b4a)}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(20,20,20,.45);display:block;padding:16px;overflow:auto}
+.modal[hidden]{display:none}
+.card{background:var(--bg);color:var(--ink);border-radius:24px;max-width:620px;width:100%;margin:2vh auto;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.ft-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+.ft-top small{color:var(--soft)}
+.ft-img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:18px;background:#f3f3f1;margin:14px 0}
+.ft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0}
+.ft-grid div{background:var(--panel);border-radius:14px;padding:8px 12px;font-size:14px;color:var(--soft)}
+.ft-grid b{display:block;color:var(--ink);font-size:18px;white-space:nowrap}
+.card h3{font:600 16px "Inter Tight",sans-serif;margin:16px 0 4px}
+.card ul,.card ol{margin:0;padding-left:20px;font-size:15px}
+@media(max-width:900px){
+.app{grid-template-columns:minmax(0,1fr);padding-top:14px;gap:18px}
+.stage{display:contents}
+.view{position:sticky;top:8px;z-index:5;height:48vh;min-height:300px;border-radius:22px;box-shadow:0 6px 20px rgba(0,0,0,.08)}}
+@media(max-width:420px){.bar button{padding:0 11px;font-size:14px}}
+@media(prefers-reduced-motion:reduce){.barm i,.toast,.view{transition:none}}
+@media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;color:var(--soft)}.stack td:empty{display:none}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<header><div class="hd">
+<h1>Simulador de bioplásticos</h1>
+<p>Experimenta con recetas virtuales y compáralas con tus muestras reales.</p>
+</div></header>
+
+<div class="app">
+<section class="stage">
+<div class="view" id="view">
+<canvas id="c" aria-label="Pieza de bioplástico en 3D; arrastra para girar"></canvas>
+<div class="hud"><b id="dayl">Seca</b><span class="hr"><button id="hq" aria-pressed="true" title="Calidad visual">Alta</button>
+<select id="shape" aria-label="Forma">
+<option value="lamina">Lámina</option><option value="maceta">Maceta</option><option value="pantalla">Pantalla de lámpara</option><option value="boton">Botón</option><option value="cartera">Cartera</option><option value="cono">Cono de grosores</option><option value="mio">Mi modelo 3D…</option>
+</select></span></div>
+<div class="mio" id="mioBar" hidden><button id="upl">Cambiar archivo</button><select id="unit" aria-label="Unidades del archivo"><option value="0.1">mm</option><option value="1">cm</option><option value="100">m</option><option value="2.54">pulg</option></select><button id="rot">Girar 90°</button></div>
+<input type="file" id="file" accept=".stl,.obj,.glb,.gltf" hidden>
+<div class="cmp" id="cmp" hidden><span id="cmpA">Actual</span><button id="cmpX">Salir de comparación</button><span id="cmpB"></span></div>
+<b class="meas" id="meas" hidden></b>
+<div class="toast" id="toast" role="status"></div>
+<div class="bar">
+<button id="play" aria-label="Animar secado">▶</button>
+<input type="range" id="day" min="0" max="1" step="0.01" value="1" aria-label="Tiempo de secado">
+<button id="light" aria-pressed="false">Luz</button>
+<button id="ruler" aria-pressed="false">Regla</button>
+<button id="bend">Doblar<i id="force"></i></button>
+<button id="reset" hidden>Reiniciar</button>
+</div>
+</div>
+<div class="res" aria-live="polite">
+<div class="vhead"><p class="verdict" id="verdict"></p><button class="btn main" id="ftOpen">Ficha técnica</button></div>
+<ul class="warn" id="warn"></ul>
+<div class="meters" id="meters"></div>
+</div>
+</section>
+
+<section class="side" data-tab="receta">
+<nav class="tabs" role="tablist">
+<button role="tab" data-t="receta" aria-selected="true">Receta</button>
+<button role="tab" data-t="usos" aria-selected="false">Usos</button>
+<button role="tab" data-t="comp" aria-selected="false">Composición</button>
+<button role="tab" data-t="micro" aria-selected="false">Microscopio</button>
+<button role="tab" data-t="proc" aria-selected="false">Pasos</button>
+<button role="tab" data-t="muestras" aria-selected="false">Muestras</button>
+</nav>
+
+<div class="panel" id="t-receta">
+<div class="bases" id="bases"></div>
+<div id="sliders"></div>
+<div class="duo">
+<div class="row"><label for="fillT">Relleno</label><select id="fillT"></select></div>
+<div class="row"><label for="pigT">Pigmento</label><select id="pigT"></select></div>
+</div>
+<div class="row"><label>Atajos de plastificante</label>
+<div class="presets"><button class="btn" data-p="0">Quebradiza</button><button class="btn" data-p="0.5">Media</button><button class="btn" data-p="1">Flexible</button></div></div>
+<div class="mine">
+<h3>Mi material</h3>
+<div class="tools"><button class="btn" id="phBtn">Usar foto de mi muestra</button><button class="btn" id="phX" hidden>Quitar foto</button></div>
+<input type="file" id="ph" accept="image/*" hidden>
+<p class="note" style="margin-top:0">La foto reemplaza el color y la textura en la vista 3D; las propiedades siguen saliendo de la receta.</p>
+<details class="newing"><summary>Crear relleno o pigmento</summary>
+<div class="duo"><div class="row"><label for="niT">Tipo</label><select id="niT"><option value="f">Relleno</option><option value="p">Pigmento</option></select></div>
+<div class="row"><label for="niC">Color</label><input type="color" id="niC" value="#8a5a3c"></div></div>
+<div class="row"><label for="niN">Nombre</label><input id="niN" class="txt" placeholder="Bagazo de agave" maxlength="40"></div>
+<div class="duo fOnly"><div class="row"><label for="niP">Partícula</label><select id="niP"><option value="polvo">Polvo</option><option value="fibra">Fibra</option><option value="escama">Escama</option><option value="oval">Trozos</option></select></div>
+<div class="row"><label for="niR">Rigidez que aporta</label><select id="niR"><option value=".5">Poca</option><option value="1" selected>Media</option><option value="1.8">Mucha</option></select></div></div>
+<div class="duo fOnly"><div class="row"><label for="niO">Opacidad</label><select id="niO"><option value=".5">Poca</option><option value="1" selected>Media</option><option value="1.8">Mucha</option></select></div>
+<div class="row"><label for="niM">Origen</label><select id="niM"><option value=".2">Orgánico</option><option value="0">Mineral</option></select></div></div>
+<div class="duo fOnly"><div class="row"><label for="niA">Absorbe agua</label><select id="niA"><option value="0">Poco</option><option value=".5" selected>Medio</option><option value="1">Mucho</option></select></div>
+<div class="row"><label for="niZ">Tamaño de partícula</label><select id="niZ"><option value=".5">Fino</option><option value="1" selected>Medio</option><option value="1.6">Grueso</option></select></div></div>
+<div class="row pOnly" hidden><label for="niI">Intensidad del color</label><select id="niI"><option value="25">Suave</option><option value="55" selected>Media</option><option value="110">Fuerte</option></select></div>
+<div class="duo pOnly" hidden><div class="row"><label for="niH">Con el calor</label><select id="niH"><option value="0">Se mantiene</option><option value="1">Se decolora</option></select></div>
+<div class="row"><label for="niL">Con la luz</label><select id="niL"><option value="0">Se mantiene</option><option value="1">Se decolora</option></select></div></div>
+<button class="btn main" id="niAdd">Agregar ingrediente</button><p class="err" id="niErr" role="alert"></p>
+</details>
+<div id="myIng"></div>
+<div class="tools"><button class="btn" id="ingCopy">Copiar código</button><input id="ingCode" placeholder="Pega un código BIO1:…" aria-label="Código de ingredientes"><button class="btn" id="ingImp">Importar</button></div>
+<p class="note" style="margin-top:0">Tus ingredientes se guardan en este navegador y siguen ahí aunque recargues la página. Para usarlos en otro dispositivo o compartirlos, copia el código y pégalo en Importar.</p>
+</div>
+</div>
+
+<div class="panel" id="t-usos" hidden>
+<h2>Del material al producto</h2>
+<ol class="flow">
+<li><b>Explora</b>Juega con la receta y observa qué hace el material: cómo se dobla, cuánto deja pasar la luz, qué textura tiene.</li>
+<li><b>Caracteriza</b>Haz muestras reales, guárdalas en la pestaña Muestras y compáralas con la predicción.</li>
+<li><b>Imagina usos</b>Busca un producto donde esas cualidades sean una ventaja y no un defecto. Prueba la receta en el selector de forma del visor.</li>
+<li><b>Prototipa y evalúa</b>Prueba la pieza en uso real: humedad, calor, desgaste y qué pasa al final de su vida.</li>
+</ol>
+<h2>Aplicaciones</h2>
+<p class="note" id="fitnow" style="margin-top:0"></p>
+<div class="uses" id="uses"></div>
+<p class="note">Límites a considerar: estos materiales absorben humedad, se ablandan con el calor (la gelatina desde unos 35 °C) y pueden enmohecerse si no secan bien. Úsalos en productos efímeros, de interior o de bajo esfuerzo.</p>
+</div>
+
+<div class="panel" id="t-comp" hidden>
+<h2>¿De qué está hecha?</h2>
+<div class="donuts">
+<figure><svg id="d0" viewBox="0 0 120 120"></svg><figcaption>Mezcla al verter</figcaption></figure>
+<figure><svg id="d1" viewBox="0 0 120 120"></svg><figcaption>Lámina seca</figcaption></figure>
+</div>
+<ul class="legend" id="leg"></ul>
+<p class="note">Casi todo el peso inicial es agua. Al evaporarse, la lámina conserva solo el polímero, la glicerina y los aditivos; por eso se encoge y se adelgaza.</p>
+</div>
+
+<div class="panel" id="t-micro" hidden>
+<h2>Vista microscópica</h2>
+<div class="micro"><canvas id="mc"></canvas></div>
+<ul class="legend" id="mleg"></ul>
+<p class="note">La glicerina se mete entre las cadenas del polímero y las deja deslizar: por eso la lámina se vuelve flexible. Mueve el control de secado y verás cómo sale el agua y las cadenas se acercan.</p>
+</div>
+
+<div class="panel" id="t-proc" hidden>
+<h2>Procedimiento</h2>
+<ol id="steps"></ol>
+<p class="note">Seguridad: usa guantes térmicos al calentar, trabaja con supervisión y no consumas las mezclas.</p>
+</div>
+
+<div class="panel" id="t-muestras" hidden>
+<h2>Mis muestras</h2>
+<div class="tools">
+<input id="sname" placeholder="Nombre (ej. Gelatina con café)" aria-label="Nombre de la muestra">
+<button class="btn main" id="save">Guardar</button>
+<button class="btn" id="copy">Copiar tabla</button>
+<button class="btn" id="clear">Borrar</button>
+</div>
+<div id="samples"></div>
+<p class="note">Usa Comparar para ver una muestra guardada junto a la receta actual en el visor.</p>
+</div>
+<p class="note">Modelo didáctico aproximado, basado en proporciones de recetarios abiertos. Los resultados reales cambian con la humedad, el grosor y los insumos: compara la predicción con tu muestra real.</p>
+</section>
+</div>
+<footer class="foot">Valens · v1.20</footer>
+
+<div class="modal" id="modal" hidden><div class="card" role="dialog" aria-modal="true" aria-labelledby="ftTitle">
+<div id="ficha"></div>
+<div class="tools" style="margin-top:18px"><button class="btn main" id="ftSave">Guardar imagen</button><button class="btn" id="ftCopy">Copiar texto</button><button class="btn" id="ftClose">Cerrar</button></div>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/GammaCorrectionShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/HorizontalBlurShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/VerticalBlurShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script>
+{
+const P={
+gel:{n:'Gelatina',def:{g:12,w:60,gl:3.6,v:0},max:.6,c:.2,shr:.3,tr:.85,col:[228,160,60],rough:.35,gloss:.6},
+agar:{n:'Agar',def:{g:2,w:50,gl:1.5,v:0},max:2.5,c:.04,shr:.45,tr:.78,col:[222,212,176],rough:.45,gloss:.4},
+alm:{n:'Almidón de maíz',def:{g:10,w:60,gl:3,v:5},max:.5,c:.17,shr:.22,tr:.42,col:[236,232,220],rough:.75,gloss:.1},
+alg:{n:'Alginato de sodio',def:{g:3,w:100,gl:2,v:0},max:1,c:.03,shr:.35,tr:.7,col:[214,222,206],rough:.4,gloss:.3}};
+const F={none:{n:'Ninguno',col:null},cafe:{n:'Café molido',col:[78,48,30],mold:.15,abs:.5,size:.7},huevo:{n:'Cáscara de huevo',col:[246,240,228],part:'escama',mold:0,abs:0,size:1},naranja:{n:'Cáscara de naranja',col:[232,138,40],part:'oval',mold:.25,abs:1,size:1.3},aserrin:{n:'Aserrín',col:[188,148,98],part:'fibra',mold:.15,abs:.8,size:1.2}};
+const G={none:{n:'Ninguno',col:null},espi:{n:'Espirulina',col:[34,110,92]},curc:{n:'Cúrcuma',col:[232,172,18]},jam:{n:'Jamaica',col:[140,26,78]},bet:{n:'Betabel',col:[170,30,70]},carb:{n:'Carbón vegetal',col:[30,30,32]}};
+const SH={lamina:'Lámina',maceta:'Maceta',pantalla:'Pantalla de lámpara',boton:'Botón',cartera:'Cartera',cono:'Cono de grosores',mio:'Mi modelo'};
+let model=null,modelRaw=null,modelName='';
+const S=[
+{id:'g',l:'Polímero',u:'g',min:.5,max:30,st:.5},
+{id:'w',l:'Agua',u:'ml',min:20,max:200,st:5},
+{id:'gl',l:'Glicerina',u:'g',min:0,max:20,st:.1},
+{id:'v',l:'Vinagre',u:'ml',min:0,max:20,st:1,only:'alm'},
+{id:'fil',l:'Cantidad de relleno',u:'g',min:0,max:15,st:.5},
+{id:'pig',l:'Cantidad de pigmento',u:'g',min:0,max:3,st:.1},
+{id:'side',l:'Lado del molde',u:'cm',min:8,max:25,st:1}];
+const st={base:'gel',g:12,w:60,gl:3.6,v:0,fil:0,pig:0,side:15,fillT:'none',pigT:'none'};
+let day=1,shape='lamina',light=false,cmpS=null,ruler=false;
+let samples=[];
+try{samples=JSON.parse(localStorage.getItem('bio-muestras')||'[]')}catch(e){samples=[]}
+const $=id=>document.getElementById(id);
+const cl=(x,a,b)=>Math.max(a,Math.min(b,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const fmt=(x,d=1)=>Number(x).toLocaleString('es-MX',{maximumFractionDigits:d});
+const rgb=c=>`rgb(${c.map(Math.round).join(',')})`;
+function rnd(seed){let s=seed;return()=>(s=(s*16807)%2147483647)/2147483647}
+function hash(x,y){let h=(Math.imul(x,374761393)+Math.imul(y,668265263))|0;h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
+function vn(x,y){const xi=Math.floor(x),yi=Math.floor(y);let xf=x-xi,yf=y-yi;xf=xf*xf*(3-2*xf);yf=yf*yf*(3-2*yf);
+const a=hash(xi,yi),b=hash(xi+1,yi),c=hash(xi,yi+1),d=hash(xi+1,yi+1);return lerp(lerp(a,b,xf),lerp(c,d,xf),yf)}
+function fbm(x,y){return vn(x,y)*.55+vn(x*2.1+17,y*2.1+5)*.3+vn(x*4.3+3,y*4.3+31)*.15}
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+$('bases').innerHTML=Object.entries(P).map(([k,p])=>`<button data-b="${k}" aria-pressed="false">${p.n}</button>`).join('');
+$('sliders').innerHTML=S.map(s=>`<div class="row" id="r-${s.id}"><label for="s-${s.id}">${s.l}<output id="o-${s.id}"></output></label><input type="range" id="s-${s.id}" min="${s.min}" max="${s.max}" step="${s.st}"></div>`).join('');
+/* ingredientes propios */
+let mine=[];try{mine=JSON.parse(localStorage.getItem('bio-ingredientes')||'[]')}catch(e){mine=[]}
+const hex2rgb=h=>{const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255]};
+function applyMine(){for(const k in F)if(F[k].custom)delete F[k];for(const k in G)if(G[k].custom)delete G[k];
+mine.forEach(i=>{if(i.t==='f')F[i.id]={n:i.n,col:i.c,part:i.p,rig:i.r,op:i.o,mold:i.m,abs:i.a??.5,size:i.z??1,custom:1};else G[i.id]={n:i.n,col:i.c,pa:i.i,heat:!!i.h,light:!!i.l,custom:1}});fillOpts();renderMine()}
+function fillOpts(){$('fillT').innerHTML=Object.entries(F).map(([k,f])=>`<option value="${k}">${esc(f.n)}</option>`).join('');$('pigT').innerHTML=Object.entries(G).map(([k,f])=>`<option value="${k}">${esc(f.n)}</option>`).join('');
+if(!F[st.fillT])st.fillT='none';if(!G[st.pigT])st.pigT='none';$('fillT').value=st.fillT;$('pigT').value=st.pigT}
+function renderMine(){$('myIng').innerHTML=mine.length?`<div class="ingl">${mine.map((i,k)=>`<span><i class="sw" style="background:${rgb(i.c)}"></i>${esc(i.n)} <small>${i.t==='f'?'relleno':'pigmento'}</small><button data-del="${k}" aria-label="Quitar ${esc(i.n)}">×</button></span>`).join('')}</div>`:''}
+function storeMine(){try{localStorage.setItem('bio-ingredientes',JSON.stringify(mine))}catch(e){}}
+applyMine();
+$('niT').addEventListener('change',()=>{const f=$('niT').value==='f';document.querySelectorAll('.fOnly').forEach(e=>e.hidden=!f);document.querySelectorAll('.pOnly').forEach(e=>e.hidden=f)});
+$('niN').addEventListener('input',()=>$('niErr').textContent='');
+$('niAdd').addEventListener('click',()=>{const n=$('niN').value.trim();if(!n){$('niErr').textContent='Escribe un nombre para el ingrediente.';return}
+const t=$('niT').value,id='u'+Date.now().toString(36),it=t==='f'?{t,id,n,c:hex2rgb($('niC').value),p:$('niP').value,r:+$('niR').value,o:+$('niO').value,m:+$('niM').value,a:+$('niA').value,z:+$('niZ').value}:{t,id,n,c:hex2rgb($('niC').value),i:+$('niI').value,h:$('niH').value==='1',l:$('niL').value==='1'};
+mine.push(it);storeMine();applyMine();if(t==='f'){st.fillT=id;if(!st.fil)st.fil=3}else{st.pigT=id;if(!st.pig)st.pig=.5}$('niN').value='';fresh();render();toast(`${n} agregado a tu receta.`)});
+$('myIng').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;mine.splice(+b.dataset.del,1);storeMine();applyMine();fresh();render()});
+$('ingCopy').addEventListener('click',async()=>{const b=$('ingCopy');if(!mine.length){b.textContent='Aún no hay ingredientes';setTimeout(()=>b.textContent='Copiar código',1800);return}
+const code='BIO1:'+btoa(unescape(encodeURIComponent(JSON.stringify(mine))));try{await navigator.clipboard.writeText(code);b.textContent='Código copiado'}catch(e){$('ingCode').value=code;b.textContent='Cópialo del campo'}setTimeout(()=>b.textContent='Copiar código',2000)});
+$('ingImp').addEventListener('click',()=>{const v=$('ingCode').value.trim();let arr=null;try{arr=JSON.parse(decodeURIComponent(escape(atob(v.replace(/^BIO1:/,'')))))}catch(e){}
+if(!Array.isArray(arr)){$('niErr').textContent='Ese código no es válido. Pide que lo copien de nuevo.';$('niErr').closest('details').open=true;return}
+let k=0;arr.forEach(i=>{if(!i||!['f','p'].includes(i.t)||typeof i.n!=='string'||!Array.isArray(i.c))return;if(mine.some(m=>m.t===i.t&&m.n===i.n))return;i.id='u'+Date.now().toString(36)+(k++);i.n=i.n.slice(0,40);mine.push(i)});storeMine();applyMine();$('ingCode').value='';render();toast(k?`${k} ingrediente(s) importado(s).`:'No había ingredientes en el código.')});
+/* foto de la muestra real como textura */
+let photo=null,photoB=null;
+$('phBtn').addEventListener('click',()=>$('ph').click());
+$('ph').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const im=new Image();im.onload=()=>{const N=512,c=document.createElement('canvas'),b=document.createElement('canvas');c.width=c.height=b.width=b.height=N;
+const x=c.getContext('2d'),m=Math.min(im.width,im.height);x.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,N,N);const bx=b.getContext('2d');bx.filter='grayscale(1) contrast(1.6)';bx.drawImage(c,0,0);
+photo=c;photoB=b;URL.revokeObjectURL(im.src);$('phX').hidden=false;$('phBtn').textContent='Cambiar foto';rebuild();toast('Tu foto ya es la textura del material.')};im.onerror=()=>toast('No pude abrir esa imagen.');im.src=URL.createObjectURL(f)});
+$('phX').addEventListener('click',()=>{photo=photoB=null;$('phX').hidden=true;$('phBtn').textContent='Usar foto de mi muestra';rebuild()});
+
+function calc(s){
+const p=P[s.base],g=s.g,w=s.w;
+const Fi=F[s.fillT]||F.none,Gi=G[s.pigT]||G.none,fil=Fi.col?s.fil:0,pg=Gi.col?s.pig:0;
+const f=s.gl/g/p.max,cr=(g/w)/p.c,fr=fil/g;
+let flex=Math.min(f,1.3)*.92+.04-fr*.25*(Fi.rig??1)-Math.max(0,cr-1.5)*.15-Math.max(0,.6-cr)*.3;
+let tr=p.tr-Math.min(fr,1.5)*.45*(Fi.op??1);
+const absF=fil?(Fi.abs??.5)*Math.min(fr,1):0,psz=Fi.size??1;
+flex-=fil?Math.max(0,psz-1)*Math.min(fr,1)*.12:0;
+const warn=[];
+if(absF>.4)warn.push('El relleno absorbe mucha agua: la pieza tardará más en secar y puede deformarse; sécalo antes de mezclarlo.');
+if(s.base==='alm'&&s.v<2){flex-=.12;tr-=.1;warn.push('Con poco vinagre el almidón queda más opaco y quebradizo.')}
+if(cr<.5)warn.push('Muy poca proporción de polímero: puede no gelificar y la película saldrá delgada y frágil.');
+if(cr>2.2)warn.push('Mezcla demasiado espesa: costará verterla y atrapará burbujas.');
+if(f>1.15)warn.push('Exceso de glicerina: la lámina quedará pegajosa y tardará más en secar.');
+if(fr>1)warn.push('Más relleno que polímero: la lámina tenderá a desmoronarse.');
+if(s.base==='alg')warn.push('El alginato necesita un baño de cloruro de calcio para endurecer.');
+flex=cl(flex,0,1);tr=cl(tr,.04,.95);
+const shr=p.shr*(1-Math.min(fr,1)*(Fi.part==='fibra'?.65:.45))+(f>1?.04:0)+absF*.05;
+const lin=Math.sqrt(1-shr),fs=s.side*lin;
+const solids=g+s.gl+fil+pg;
+const thick=solids/1.25/(fs*fs)*10;
+const days=cl(w/(s.side*s.side*.09)*(f>1.15?1.4:1)*(1+absF*.6),.5,30);
+/* pigmento: intensidad por concentración en la lámina seca y por grosor (ley de Beer-Lambert simplificada) */
+const PA=Gi.pa??({espi:70,curc:55,jam:45,bet:50,carb:220}[s.pigT]||0);
+const pc=s.pigT==='jam'?(s.base==='alm'&&s.v>=2?[196,28,64]:[104,32,96]):({espi:[18,92,88],curc:[232,160,0],bet:[160,18,78],carb:[24,24,26]}[s.pigT]||Gi.col||p.col);
+const ac=pg?PA*pg/solids:0;
+const tint=t=>{const mx=1-Math.exp(-ac*t);return{mx,col:p.col.map((b,i)=>(b*(1-mx)+pc[i]*mx)*(1-.22*mx))}};
+const T0=tint(thick),col=T0.col,mix=T0.mx;
+if(pg){tr=s.pigT==='carb'?tr*Math.exp(-ac*thick*.8):tr-.18*mix;tr=cl(tr,.04,.95)}
+if(pg&&Gi.custom){const nm=Gi.n;if(Gi.heat)warn.push(`${nm} se decolora con el calor: agrégalo al final, con la mezcla tibia.`);if(Gi.light)warn.push(`${nm} se decolora con la luz: guarda la pieza a la sombra y evita usos al sol.`)}
+if(pg&&!Gi.custom){const pw={espi:(s.base==='gel'||s.base==='agar')?'La espirulina pierde su tono azul con el calor: agrégala al final, con la mezcla por debajo de 45 °C.':'',curc:'La cúrcuma se decolora con la luz solar con el tiempo; guarda las muestras a la sombra.',jam:s.base==='alm'&&s.v>=2?'Con el vinagre, la jamaica vira a rojo.':'Sin ácido la jamaica queda violeta; con unas gotas de vinagre vira a rojo.',bet:'El betabel se decolora con el calor y la luz; al secar puede tornarse café.',carb:'El carbón opaca mucho la lámina: con muy poco ya se ve gris oscuro.'}[s.pigT];if(pw)warn.push(pw)}
+const comp=[['Polímero',g,'#4f5563'],['Agua',w,'#3f8fd2'],['Glicerina',s.gl,'#f0a81c']];
+if(s.base==='alm')comp.push(['Vinagre',s.v,'#9aa36b']);
+if(fil)comp.push([Fi.n,fil,rgb(Fi.col)]);
+if(pg)comp.push([Gi.n,pg,rgb(Gi.col)]);
+/* riesgo de hongos */
+const days0=days;
+let mold=.12+({gel:.15,alm:.2,agar:.05,alg:.05}[s.base])+Math.max(0,f-.8)*.45+(Fi.mold??.15)*Math.min(fr,1.2)*(fil?1.3:0)+Math.min(.3,Math.max(0,days0-3)*.05)+absF*.15-(s.base==='alm'&&s.v>=2?.1:0);
+mold=cl(mold,0,1);
+if(mold>=.35){const tips=[];if(f>.8)tips.push('baja un poco la glicerina');if(fil&&(Fi.mold??.15)>0)tips.push('seca el relleno en horno bajo antes de usarlo');if(days0>3)tips.push('seca con ventilador o en un lugar ventilado');if(s.base!=='alm'||s.v<2)tips.push('agrega unas gotas de vinagre');
+warn.push(`${mold>=.6?'Riesgo alto':'Riesgo medio'} de hongos: ${tips.concat('guarda las muestras secas y lejos de la humedad').join(', ')}.`)}
+const dry=comp.map(c=>[c[0],c[0]==='Agua'?solids*.1:c[0]==='Vinagre'?0:c[1],c[2]]);
+return{p,flex,tr,shr,lin,fs,thick,days,col,mix,tint,mold,light:pg?(Gi.custom?Gi.light:['curc','bet'].includes(s.pigT)):false,roughAdd:fil?psz*Math.min(fr,1)*.25:0,fr,cr,f,warn,sticky:f>1.15,bubbles:cr>2.2,comp,dry,fil,pg};
+}
+function words(r,s){
+const a=r.flex<.2?'Rígida y quebradiza, se parte al doblarla':r.flex<.45?'Semirrígida, se dobla poco':r.flex<.75?'Flexible, con tacto de cuero delgado':'Muy elástica, con tacto de goma';
+const b=r.tr>.62?'translúcida':r.tr>.33?'semiopaca':'opaca';
+const c=r.fil?` con textura de ${F[s.fillT].n.toLowerCase()}`:'';
+return `${a}, ${b}${c}.`;
+}
+function recipeText(s){return `${P[s.base].n} ${fmt(s.g)} g, agua ${fmt(s.w,0)} ml, glicerina ${fmt(s.gl)} g`+(s.base==='alm'?`, vinagre ${fmt(s.v,0)} ml`:'')+extra(s)}
+function extra(s){const a=[];if(s.fillT!=='none'&&s.fil>0)a.push(`${fmt(s.fil)} g de ${F[s.fillT].n.toLowerCase()}`);if(s.pigT!=='none'&&s.pig>0)a.push(`${fmt(s.pig)} g de ${G[s.pigT].n.toLowerCase()}`);return a.length?', '+a.join(' y '):''}
+
+/* ---------- textura procedural ---------- */
+function makeTex(r,s){
+const N=512,cv=document.createElement('canvas'),bv=document.createElement('canvas');cv.width=cv.height=bv.width=bv.height=N;
+const x=cv.getContext('2d'),bx=bv.getContext('2d');
+const id=x.createImageData(N,N),bd=bx.createImageData(N,N);
+const mott={gel:.05,agar:.07,alm:.14,alg:.08}[s.base];
+for(let j=0;j<N;j++)for(let i=0;i<N;i++){const n=fbm(i/48,j/48),k=(j*N+i)*4,m=1+(n-.5)*mott*2;
+id.data[k]=cl(r.col[0]*m,0,255);id.data[k+1]=cl(r.col[1]*m,0,255);id.data[k+2]=cl(r.col[2]*m,0,255);id.data[k+3]=255;
+const v=n*160+40;bd.data[k]=bd.data[k+1]=bd.data[k+2]=v;bd.data[k+3]=255}
+x.putImageData(id,0,0);bx.putImageData(bd,0,0);
+const R=rnd(11);
+if(r.pg&&['espi','curc','carb'].includes(s.pigT)){x.fillStyle=rgb(G[s.pigT].col.map(c=>c*.8));for(let i=0;i<r.pg*120;i++){x.globalAlpha=.5;x.beginPath();x.arc(R()*N,R()*N,.6+R()*1.4,0,7);x.fill()}x.globalAlpha=1}
+if(r.fil){const Fi=F[s.fillT]||F.none,part=Fi.part||'polvo',fc=Fi.col,n=Math.round(Math.min(r.fr,1.5)*900);
+for(let i=0;i<n;i++){const px=R()*N,py=R()*N,z=(1+R()*2.6)*(Fi.size??1),a=R()*Math.PI;
+const shade=.75+R()*.4;x.fillStyle=rgb(fc.map(c=>cl(c*shade,0,255)));bx.fillStyle='#fff';
+for(const c of[x,bx]){c.save();c.translate(px,py);c.rotate(a);c.beginPath();
+if(part==='fibra')c.rect(-z*1.8,-z*.45,z*3.6,z*.9);
+else if(part==='oval')c.ellipse(0,0,z*1.7,z*.8,0,0,7);
+else if(part==='escama'){c.moveTo(-z,-z*.6);c.lineTo(z*1.1,-z*.3);c.lineTo(z*.4,z);c.lineTo(-z*.8,z*.5)}
+else c.arc(0,0,z*.8,0,7);
+c.fill();c.restore()}}}
+const D=rnd(23);
+if(s.base==='agar'){bx.strokeStyle='rgba(255,255,255,.16)';x.strokeStyle='rgba(255,255,255,.07)';for(let i=0;i<260;i++){const y0=D()*N,l=40+D()*160,x0=D()*N;for(const c of[x,bx]){c.lineWidth=.6+D()*1.2;c.beginPath();c.moveTo(x0,y0);c.bezierCurveTo(x0+l*.3,y0+(D()-.5)*20,x0+l*.7,y0+(D()-.5)*20,x0+l,y0+(D()-.5)*10);c.stroke()}}}
+if(s.base==='alg'){bx.strokeStyle='rgba(255,255,255,.22)';bx.lineWidth=1;for(let i=0;i<700;i++){bx.beginPath();bx.arc(D()*N,D()*N,2+D()*5,0,7);bx.stroke()}}
+if(s.base==='alm'){bx.fillStyle='rgba(255,255,255,.12)';for(let i=0;i<500;i++){bx.beginPath();bx.arc(D()*N,D()*N,4+D()*14,0,7);bx.fill()}}
+if(s.base==='gel'){x.strokeStyle='rgba(255,255,255,.06)';bx.strokeStyle='rgba(255,255,255,.1)';for(let i=0;i<40;i++){const cx=D()*N,cy=D()*N,rr=20+D()*90;for(const c of[x,bx]){c.lineWidth=1+D()*2;c.beginPath();c.arc(cx,cy,rr,D()*6,D()*6+2);c.stroke()}}}
+if(r.bubbles){x.strokeStyle='rgba(255,255,255,.7)';bx.fillStyle='#fff';for(let i=0;i<40;i++){const px=R()*N,py=R()*N,z=2+R()*5;x.beginPath();x.arc(px,py,z,0,7);x.stroke();bx.beginPath();bx.arc(px,py,z,0,7);bx.fill()}}
+return[cv,bv];
+}
+
+/* ---------- escena 3D: estudio de producto ---------- */
+const view=$('view'),canvas=$('c');
+let three=null,holding=false,last=null,idle=0;
+const cam={az:.6,el:.7,R:40,ty:0};
+function initThree(){
+if(!window.THREE){view.insertAdjacentHTML('beforeend','<div class="nogl">No se pudo cargar el visor 3D. El resto del laboratorio funciona.</div>');return}
+const T=THREE;
+let renderer;try{renderer=new T.WebGLRenderer({canvas,antialias:true})}catch(e){view.insertAdjacentHTML('beforeend','<div class="nogl">Este dispositivo no tiene WebGL. El resto del laboratorio funciona.</div>');return}
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.outputEncoding=T.sRGBEncoding;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
+renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1;
+const scene=new T.Scene();scene.background=new T.Color('#f3f3f1');
+const camera=new T.PerspectiveCamera(34,1,1,300);
+/* entorno de estudio: cuarto gris con softboxes, filtrado con PMREM */
+try{const es=new T.Scene();const room=new T.Mesh(new T.BoxGeometry(100,60,100),new T.MeshBasicMaterial({color:0x6a6a68,side:T.BackSide}));room.position.y=25;es.add(room);
+const sb=(w,h,x,y,z,ry,rx,k)=>{const m=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({side:T.DoubleSide}));m.material.color.setScalar(k);m.position.set(x,y,z);m.rotation.set(rx,ry,0);es.add(m)};
+sb(40,30,0,54,0,0,Math.PI/2,5);sb(30,40,-48,25,10,Math.PI/2,0,3);sb(20,40,48,22,-20,-Math.PI/2,0,1.6);sb(60,8,0,8,-48,0,0,1.2);
+const pm=new T.PMREMGenerator(renderer);scene.environment=pm.fromScene(es,.03).texture;pm.dispose()}catch(e){}
+const hemi=new T.HemisphereLight(0xffffff,0xe4e2de,.35);scene.add(hemi);
+const key=new T.DirectionalLight(0xffffff,.9);key.position.set(-14,32,18);key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.radius=6;
+Object.assign(key.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:120});key.shadow.bias=-.0004;key.shadow.camera.updateProjectionMatrix();scene.add(key);
+const rim=new T.DirectionalLight(0xffffff,.45);rim.position.set(18,14,-22);scene.add(rim);
+const floor=new T.Mesh(new T.PlaneGeometry(400,400),new T.ShadowMaterial({opacity:.07}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+const boxSide=new T.MeshStandardMaterial({color:0xd9d9d6,roughness:.5,metalness:.1}),boxTop=new T.MeshBasicMaterial({color:0xfff8ec});
+const box=new T.Mesh(new T.BoxGeometry(1,1.2,1),[boxSide,boxSide,boxTop,boxSide,boxSide,boxSide]);box.position.y=.65;box.castShadow=true;box.visible=false;scene.add(box);
+const boxLight=new T.PointLight(0xfff4e0,0,80);scene.add(boxLight);
+const moldMat=new T.MeshStandardMaterial({color:0xfafaf8,roughness:.35,transparent:true,opacity:.7});
+const walls=[0,1,2,3].map(()=>{const b=new T.Mesh(new T.BoxGeometry(1,1,1),moldMat);b.castShadow=true;b.receiveShadow=true;scene.add(b);return b});
+three={T,renderer,scene,camera,hemi,key,rim,floor,box,boxTop,boxLight,walls,specs:[],hq:true};
+{const side=new T.MeshStandardMaterial({color:0xb9b9b5,metalness:.6,roughness:.35}),top=new T.MeshStandardMaterial({metalness:.25,roughness:.45});
+const rm=new T.Mesh(new T.BoxGeometry(1,.18,3),[side,side,top,side,side,side]);rm.castShadow=true;rm.receiveShadow=true;rm.visible=false;scene.add(rm);
+three.ruler={mesh:rm,top,len:0,mark:0}}
+/* sombra de contacto difusa, como en fotografía de producto */
+try{const W=120,CH=14,sg=new T.Group();sg.position.y=.015;scene.add(sg);
+const rt=new T.WebGLRenderTarget(512,512),rb=new T.WebGLRenderTarget(512,512);rt.texture.generateMipmaps=rb.texture.generateMipmaps=false;
+const pg=new T.PlaneGeometry(W,W).rotateX(Math.PI/2);
+const plane=new T.Mesh(pg,new T.MeshBasicMaterial({map:rt.texture,opacity:.62,transparent:true,depthWrite:false}));plane.renderOrder=1;plane.scale.y=-1;sg.add(plane);three.cplane=plane;
+const blur=new T.Mesh(pg);blur.visible=false;sg.add(blur);
+const sc=new T.OrthographicCamera(-W/2,W/2,W/2,-W/2,0,CH);sc.rotation.x=Math.PI/2;sg.add(sc);
+const dm=new T.MeshDepthMaterial();dm.userData.dk={value:1.6};
+dm.onBeforeCompile=sh=>{sh.uniforms.darkness=dm.userData.dk;sh.fragmentShader='uniform float darkness;\n'+sh.fragmentShader.replace('gl_FragColor = vec4( vec3( 1.0 - fragCoordZ ), opacity );','gl_FragColor = vec4( vec3( 0.0 ), ( 1.0 - fragCoordZ ) * darkness );')};
+dm.depthTest=dm.depthWrite=false;
+const hb=new T.ShaderMaterial(T.HorizontalBlurShader),vb=new T.ShaderMaterial(T.VerticalBlurShader);hb.depthTest=vb.depthTest=false;
+const bl=a=>{blur.visible=true;blur.material=hb;hb.uniforms.tDiffuse.value=rt.texture;hb.uniforms.h.value=a/256;renderer.setRenderTarget(rb);renderer.render(blur,sc);
+blur.material=vb;vb.uniforms.tDiffuse.value=rb.texture;vb.uniforms.v.value=a/256;renderer.setRenderTarget(rt);renderer.render(blur,sc);blur.visible=false};
+three.contact=()=>{const bg=scene.background,hid=[plane,floor];const vis=hid.map(o=>o.visible);hid.forEach(o=>o.visible=false);scene.background=null;scene.overrideMaterial=dm;
+renderer.setRenderTarget(rt);renderer.setClearColor(0x000000,0);renderer.clear();renderer.render(scene,sc);scene.overrideMaterial=null;bl(1.6);bl(.7);
+renderer.setRenderTarget(null);scene.background=bg;hid.forEach((o,i)=>o.visible=vis[i])};
+}catch(e){three.contact=null}
+/* oclusión ambiental (SSAO) en calidad alta */
+try{const comp=new T.EffectComposer(renderer);const ao=new T.SSAOPass(scene,camera,256,256);ao.kernelRadius=3;ao.minDistance=.0005;ao.maxDistance=.08;
+comp.addPass(ao);comp.addPass(new T.ShaderPass(T.GammaCorrectionShader));if(T.FXAAShader){three.fxaa=new T.ShaderPass(T.FXAAShader);comp.addPass(three.fxaa)}three.comp=comp}catch(e){three.comp=null;three.hq=false}
+three.specs=[new Spec(),new Spec()];
+new ResizeObserver(()=>{const w=view.clientWidth,h=view.clientHeight;renderer.setSize(w,h,false);if(three.comp){const pr=Math.min(devicePixelRatio||1,matchMedia('(pointer:coarse)').matches?1.5:2);three.comp.setPixelRatio(pr);three.comp.setSize(w,h);if(three.fxaa)three.fxaa.material.uniforms.resolution.value.set(1/(w*pr),1/(h*pr))}camera.aspect=w/h;camera.updateProjectionMatrix()}).observe(view);
+let drag=null;
+canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};idle=0;canvas.setPointerCapture(e.pointerId);canvas.style.cursor='grabbing'});
+canvas.addEventListener('pointermove',e=>{if(!drag)return;cam.az-=(e.clientX-drag.x)*.008;cam.el=cl(cam.el+(e.clientY-drag.y)*.006,.12,1.45);drag={x:e.clientX,y:e.clientY};idle=0});
+const end=()=>{drag=null;canvas.style.cursor='grab'};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.zoom=cl((cam.zoom||1)*(1+e.deltaY*.001),.5,2.2);idle=0},{passive:false});
+}
+
+const NX=24,NY=48;
+function Spec(){const T=three.T;this.g=new T.Group();three.scene.add(this.g);
+this.mat=new T.MeshPhysicalMaterial({transparent:true,side:T.DoubleSide,clearcoatRoughness:.12,bumpScale:.18,envMapIntensity:1,emissive:0xffffff,emissiveIntensity:0});
+this.meshes=[];this.force=0;this.broken=false;this.g.visible=false}
+Spec.prototype.set=function(s,shp){const T=three.T;this.s={...s};this.r=calc(this.s);this.shape=shp;this.g.visible=true;this.broken=false;this.force=0;
+const[cv,bv]=(photo&&this===three.specs[0])?[photo,photoB]:makeTex(this.r,this.s),m=this.mat;if(m.map)m.map.dispose();if(m.bumpMap)m.bumpMap.dispose();
+m.map=new T.CanvasTexture(cv);m.map.encoding=T.sRGBEncoding;m.map.anisotropy=4;m.bumpMap=new T.CanvasTexture(bv);m.roughnessMap=m.bumpMap;m.emissiveMap=m.map;m.needsUpdate=true;
+if(this.coneMat){this.coneMat.map&&this.coneMat.map.dispose();this.coneMat.dispose();this.coneMat=null}
+this.meshes.forEach(x=>{this.g.remove(x);x.geometry.dispose()});this.meshes=[];this.bulb=null;if(this.pl)this.g.remove(this.pl);this.pl=null;
+const add=(geo,mat=m)=>{const me=new T.Mesh(geo,mat);me.castShadow=true;me.receiveShadow=true;this.g.add(me);this.meshes.push(me);return me};
+const normUV=(geo,sz)=>{const uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/sz+.5,uv.getY(i)/sz+.5)};
+const V=(x,y)=>new T.Vector2(x,y);
+if(shp==='lamina'){[0,1].forEach(side=>{const n=(NX+1)*(NY+1),pos=new Float32Array(n*3),uv=new Float32Array(n*2),idx=[];
+for(let j=0;j<=NY;j++)for(let i=0;i<=NX;i++){const k=j*(NX+1)+i;uv[k*2]=side*.5+i/NX*.5;uv[k*2+1]=j/NY}
+for(let j=0;j<NY;j++)for(let i=0;i<NX;i++){const a=j*(NX+1)+i,b=a+1,c=a+NX+1,d=c+1;idx.push(a,c,b,b,c,d)}
+const g=new T.BufferGeometry();g.setIndex(idx);g.setAttribute('position',new T.BufferAttribute(pos,3));g.setAttribute('uv',new T.BufferAttribute(uv,2));add(g).userData.side=side})}
+else if(shp==='maceta'){add(new T.LatheGeometry([V(.01,0),V(2.6,0),V(4,7.5),V(3.8,7.65),V(3.6,7.5),V(2.3,.4),V(.01,.4)],64))}
+else if(shp==='pantalla'){add(new T.LatheGeometry([V(7.5,0),V(5.5,10),V(5.35,10),V(7.35,0),V(7.5,0)],72));
+const metal=new T.MeshStandardMaterial({color:0x2a2a2a,metalness:.7,roughness:.35});
+[[7.42,0],[5.42,10]].forEach(([r,y])=>{const t=add(new T.TorusGeometry(r,.07,8,96),metal);t.rotation.x=Math.PI/2;t.position.y=y});
+this.bulb=add(new T.SphereGeometry(1.3,32,16),new T.MeshStandardMaterial({color:0xffffff,emissive:0xfff0d0,emissiveIntensity:0,roughness:.2}));this.bulb.position.y=4.5;this.bulb.castShadow=false;
+this.pl=new T.PointLight(0xffe6b8,0,60,1.6);this.pl.position.y=4.5;this.g.add(this.pl)}
+else if(shp==='boton'){const sh=new T.Shape();sh.absarc(0,0,2,0,Math.PI*2,false);
+[[.55,.55],[-.55,.55],[.55,-.55],[-.55,-.55]].forEach(([x,y])=>{const h=new T.Path();h.absarc(x,y,.24,0,Math.PI*2,true);sh.holes.push(h)});
+const g=new T.ExtrudeGeometry(sh,{depth:.35,bevelEnabled:true,bevelThickness:.12,bevelSize:.12,bevelSegments:4,curveSegments:64});g.rotateX(-Math.PI/2);g.translate(0,.12,0);normUV(g,4);add(g)}
+else if(shp==='cono'){const r=this.r,H=9,geo=new T.LatheGeometry([V(.01,0),V(6,0),V(.01,H)],96),p=geo.attributes.position,cc=new Float32Array(p.count*3),bc=r.p.col;
+for(let i=0;i<p.count;i++){const t=4*(1-p.getY(i)/H),tc=r.tint(t).col;for(let k=0;k<3;k++)cc[i*3+k]=Math.min(8,Math.pow(tc[k]/Math.max(bc[k],8),2.2))}
+geo.setAttribute('color',new T.BufferAttribute(cc,3));
+const[cv2]=makeTex({...r,col:bc},this.s),cm=this.coneMat=m.clone();cm.vertexColors=true;cm.map=new T.CanvasTexture(cv2);cm.map.encoding=T.sRGBEncoding;cm.emissiveMap=cm.map;cm.needsUpdate=true;add(geo,cm)}
+else if(shp==='mio'){if(model)model.geos.forEach(g=>add(g.clone()))}
+else if(shp==='cartera'){const rr=(w,h,r)=>{const s=new T.Shape();s.moveTo(-w/2+r,-h/2);s.lineTo(w/2-r,-h/2);s.quadraticCurveTo(w/2,-h/2,w/2,-h/2+r);s.lineTo(w/2,h/2-r);s.quadraticCurveTo(w/2,h/2,w/2-r,h/2);s.lineTo(-w/2+r,h/2);s.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);s.lineTo(-w/2,-h/2+r);s.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);return s};
+const b=new T.ExtrudeGeometry(rr(18,10,1.2),{depth:.4,bevelEnabled:true,bevelThickness:.1,bevelSize:.1,bevelSegments:3,curveSegments:16});b.rotateX(-Math.PI/2);b.translate(0,.1,0);normUV(b,18);add(b);
+const f=new T.Shape();f.moveTo(-9,5);f.lineTo(9,5);f.lineTo(9,1.8);f.quadraticCurveTo(0,-4.5,-9,1.8);f.closePath();
+const fg=new T.ExtrudeGeometry(f,{depth:.22,bevelEnabled:true,bevelThickness:.06,bevelSize:.06,bevelSegments:2,curveSegments:24});fg.rotateX(-Math.PI/2);fg.translate(0,.62,0);normUV(fg,18);add(fg)}
+};
+Spec.prototype.size=function(){return{lamina:{w:this.s.side,h:2},maceta:{w:8,h:7.6},pantalla:{w:15,h:10},boton:{w:4,h:.6},cartera:{w:18,h:.8},cono:{w:12,h:9},mio:model?{w:Math.max(model.dx,model.dz),h:model.dy}:{w:10,h:2}}[this.shape]};
+Spec.prototype.frame=function(dt,dd){const r=this.r,m=this.mat,isS=this.shape==='lamina',d=isS?dd:1;
+const trNow=lerp(Math.min(.92,r.tr+.12),r.tr,d);
+m.opacity=1;m.transmission=lerp(Math.min(.7,trNow*.72),trNow*.22,lit)*(1-.6*(r.mix||0));m.roughness=lerp(.08,Math.min(1,r.p.rough-(r.sticky?.2:0)+(r.roughAdd||0)),d);m.clearcoat=lerp(1,Math.min(1,r.p.gloss+(r.sticky?.5:0)),d);
+m.emissiveIntensity=lit*(.12+trNow*1.15);
+if(this.bulb){this.bulb.material.emissiveIntensity=light?2.2:.05;this.pl.intensity=light?1.6:0}
+if(this.coneMat){const c=this.coneMat;c.roughness=m.roughness;c.clearcoat=m.clearcoat;c.transmission=lerp(Math.min(.7,trNow*.72),trNow*.22,lit)*.85;c.emissiveIntensity=m.emissiveIntensity;c.envMapIntensity=m.envMapIntensity}
+if(!isS){this.g.position.y=.06;return}
+if(holding&&!this.broken)this.force=Math.min(1,this.force+dt*.8);else this.force=Math.max(0,this.force-dt*2.2);
+const breakAt=r.flex<.3?.12+r.flex*2.6:9;
+if(!this.broken&&this.force>breakAt){this.broken=true;this.force=0;onBreak(this)}
+this.g.position.y=lerp(this.g.position.y,ruler?0:light?1.26:lerp(0,1.6,cl((d-.9)*10,0,1)),Math.min(1,dt*6));this.L=this.s.side*(1-(1-r.lin)*d);
+const L=this.s.side*(1-(1-r.lin)*d),wr=.05*L*r.shr*d,curl=.07*L*r.shr*d,bc=this.force*(.1+r.flex*1.6)/L,jag=L/40,br=this.broken;
+this.meshes.forEach(me=>{const pos=me.geometry.attributes.position,uv=me.geometry.attributes.uv,side=me.userData.side;
+for(let k=0;k<pos.count;k++){const U=uv.getX(k),Vv=uv.getY(k);let x=(U-.5)*L;const z=(Vv-.5)*L;
+if(Math.abs(U-.5)<1e-4)x+=(vn(Vv*12,3)-.5)*jag;
+const e=Math.min(U,1-U,Vv,1-Vv);const y=.06+(fbm(U*6,Vv*6)-.5)*wr+curl*Math.max(0,.12-e)**2/.0144+bc*x*x;
+let X=x,Z=z;if(br&&side===1){const a=.12;X=(x+L*.06)*Math.cos(a)-z*Math.sin(a);Z=(x+L*.06)*Math.sin(a)+z*Math.cos(a)}
+pos.setXYZ(k,X,y,Z)}
+pos.needsUpdate=true;me.geometry.computeVertexNormals()});
+};
+function onBreak(sp){$('bend').hidden=true;$('reset').hidden=false;
+const who=cmpS?(sp===three.specs[0]?'La receta actual':esc(cmpS.name)):'';
+toast(who?`${who} se rompió.`:sp.r.flex<.15?'¡Se rompió! Agrega glicerina para hacerla flexible.':'¡Se agrietó y partió! Un poco más de glicerina la haría resistir.')}
+function rebuild(){if(!three)return;const[A,B]=three.specs;A.set(st,shape);if(cmpS)B.set(cmpS.s,shape);else B.g.visible=false}
+function rulerTex(len,mark){const T=three.T,k=64,W=Math.round(len*k),H=192,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#f2f2ef');g.addColorStop(1,'#dcdcd8');x.fillStyle=g;x.fillRect(0,0,W,H);if(mark){x.fillStyle='rgba(224,149,26,.85)';x.fillRect(mark*k-3,0,6,H)}
+x.fillStyle='#1c1c1c';x.textAlign='center';x.font='600 30px "Inter Tight",Arial,sans-serif';
+for(let i=0;i<=len*10;i++){const px=Math.min(W-2,i/10*k+1),cm=i%10===0,half=i%5===0;x.fillRect(px-(cm?1.5:1),0,cm?3:2,cm?70:half?46:26);if(cm&&i>0&&i<len*10)x.fillText(i/10,px,108)}
+x.font='600 22px "Inter Tight",Arial,sans-serif';x.textAlign='left';x.fillText('cm',10,170);
+if(mark){x.fillStyle='#c27a0e';x.textAlign='right';x.fillText('molde '+mark+' cm',mark*k-10,170)}
+const t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;t.anisotropy=8;return t}
+function placeRuler(){const R=three.ruler,A=three.specs[0];R.mesh.visible=ruler&&A.g.visible;if(!R.mesh.visible)return;
+const isS=shape==='lamina',w=isS?(A.L||st.side):A.size().w,len=Math.ceil((isS?st.side:w)+4),mark=isS?st.side:0;
+if(len!==R.len||mark!==R.mark){if(R.top.map)R.top.map.dispose();R.top.map=rulerTex(len,mark);R.top.needsUpdate=true;R.len=len;R.mark=mark;R.mesh.scale.set(len,1,1)}
+const x0=A.g.position.x-w/2;R.mesh.position.set(x0+len/2,.14,w/2+2.6);
+if(isS){$('meas').textContent=`Lado ${fmt(w)} cm de ${st.side} cm · ${Math.round((1-w/st.side)*100)} % menos de largo`;$('meas').hidden=false}else $('meas').hidden=true}
+function draw3d(){const{renderer,scene,camera}=three;if(three.contact)three.contact();if(three.hq&&three.comp)three.comp.render();else renderer.render(scene,camera)}
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),2800)}
+
+/* ---------- microscopio ---------- */
+const mcv=$('mc'),mx=mcv.getContext('2d');
+new ResizeObserver(()=>{const r=mcv.getBoundingClientRect(),k=Math.min(devicePixelRatio||1,2);mcv.width=r.width*k;mcv.height=r.height*k;mx.setTransform(k,0,0,k,0,0)}).observe(mcv);
+function micro(t){
+const r=last,W=mcv.clientWidth,H=mcv.clientHeight,d=day;if(!W)return;mx.clearRect(0,0,W,H);
+const sp=18+Math.min(r.f,1.3)*16+(1-d)*12,amp=2+r.flex*5,spd=.6+r.flex*2,n=Math.ceil(H/sp)+1;
+const R=rnd(5);
+if(r.fil){mx.fillStyle=rgb(F[st.fillT].col);const k=Math.round(Math.min(r.fr,1.5)*6);for(let i=0;i<k;i++){const x=R()*W,y=R()*H,z=10+R()*10;mx.beginPath();mx.ellipse(x,y,z,z*.7,R()*3,0,7);mx.fill()}}
+const yc=(k,x)=>sp*(k+.5)-sp/2+Math.sin(x*.05+k*1.7+t*spd)*amp+Math.sin(x*.013+k)*4;
+if(st.base==='alg'){mx.strokeStyle='#2f9a80';mx.fillStyle='#2f9a80';mx.lineWidth=2;for(let k=0;k<n-1;k++)for(let x=30+(k%2)*30;x<W;x+=60){const a=yc(k,x),b=yc(k+1,x);mx.beginPath();mx.moveTo(x,a);mx.lineTo(x,b);mx.stroke();mx.beginPath();mx.arc(x,(a+b)/2,3.5,0,7);mx.fill()}}
+mx.strokeStyle='#4f5563';mx.fillStyle='#4f5563';mx.lineWidth=3;
+for(let k=0;k<n;k++){mx.beginPath();for(let x=-10;x<=W+10;x+=8){const y=yc(k,x);x<0?mx.moveTo(x,y):mx.lineTo(x,y)}mx.stroke();
+for(let x=4;x<W;x+=24){mx.beginPath();mx.arc(x,yc(k,x),3.2,0,7);mx.fill()}}
+mx.fillStyle='#f0a81c';const gk=Math.round(Math.min(r.f,1.4)*W/40);
+for(let k=0;k<n-1;k++)for(let i=0;i<gk;i++){const x=R()*W,ph=R()*6;const y=(yc(k,x)+yc(k+1,x))/2+Math.sin(t*1.3+ph)*sp*.18;mx.beginPath();mx.arc(x+Math.cos(t+ph)*3,y,3.6,0,7);mx.fill()}
+mx.fillStyle='#3f8fd2';const wk=Math.round((1-d)*W*H/900);
+for(let i=0;i<wk;i++){const ph=R()*6;mx.beginPath();mx.arc((R()*W+t*12*(R()-.5)+W)%W,(R()*H+Math.sin(t+ph)*6+H)%H,2.1,0,7);mx.fill()}
+}
+
+/* ---------- usos ---------- */
+const USES=[
+{n:'Difusor de lámpara',sh:'pantalla',d:'Láminas translúcidas que suavizan la luz; el color y las texturas aparecen al encenderla.',pr:'Seca la lámina sobre una forma curva y ensambla con pestañas, sin pegamento. Usa solo LED, que calienta poco.',need:{flex:[.2,.75],tr:.6},rec:{base:'gel',g:12,w:60,gl:2.4,v:0,fil:0,fillT:'none',pig:.3,pigT:'curc'}},
+{n:'Piel vegetal para accesorios',sh:'cartera',d:'Material flexible y resistente para carteras, correas, estuches y forros.',pr:'Corte con navaja o láser, costura a mano o remaches. Sella las orillas con una capa delgada de mezcla.',need:{flex:[.65,1],thick:.5},rec:{base:'gel',g:12,w:60,gl:7.2,v:0,fil:3,fillT:'cafe',pig:0,pigT:'none'}},
+{n:'Empaque ligero',sh:'lamina',d:'Sobres para semillas, especias secas o piezas pequeñas que no necesitan durar años.',pr:'Pliega y sella con plancha tibia entre papel encerado. Evita alimentos húmedos.',need:{flex:[.45,.9]},rec:{base:'alm',g:10,w:60,gl:3,v:5,fil:0,fillT:'none',pig:0,pigT:'none'}},
+{n:'Macetas y semilleros',sh:'maceta',d:'Contenedores con fibra para germinar semillas; se plantan junto con la planta.',pr:'Moldea la mezcla espesa sobre un vaso o una forma impresa en 3D y deja secar antes de desmoldar.',need:{flex:[0,.5],fill:true,sun:true},rec:{base:'alm',g:12,w:60,gl:1.5,v:5,fil:8,fillT:'aserrin',pig:0,pigT:'none'}},
+{n:'Botones, joyería y piezas rígidas',sh:'boton',d:'Piezas pequeñas y duras con color y transparencia propios.',pr:'Cuela en moldes de silicona hechos a partir de modelos impresos en 3D; usa mezcla más concentrada para piezas gruesas.',need:{flex:[0,.3]},rec:{base:'agar',g:3,w:50,gl:0,v:0,fil:0,fillT:'none',pig:.6,pigT:'jam'}},
+{n:'Muestrario táctil y textiles',sh:'lamina',d:'Swatches de color y textura, hilos y superficies para explorar con las manos.',pr:'Extruye hilos con jeringa sobre cloruro de calcio y téjelos, o haz láminas texturizadas sobre moldes con relieve.',need:{flex:[.4,.9]},rec:{base:'alg',g:3,w:100,gl:2,v:0,fil:1.5,fillT:'naranja',pig:0,pigT:'none'}}];
+function fit(u,r){const m=[],n=u.need;
+if(r.flex<n.flex[0])m.push('Más flexibilidad: sube la glicerina.');
+if(r.flex>n.flex[1])m.push('Menos flexibilidad: baja la glicerina o agrega relleno.');
+if(n.tr&&r.tr<n.tr)m.push('Más transparencia: quita relleno o pigmentos oscuros.');
+if(n.fill&&!r.fil)m.push('Agrega un relleno fibroso, como aserrín.');
+if(n.sun&&r.light)m.push('El pigmento se decolora al sol: usa uno estable a la luz.');
+if(n.thick&&r.thick<n.thick)m.push('Más grosor: aumenta el polímero o usa un molde más chico.');
+return m}
+function okUses(r){return USES.filter(u=>!fit(u,r).length).map(u=>u.n)}
+function renderUses(r){
+const fits=USES.map(u=>({u,m:fit(u,r)}));const ok=okUses(r).map(n=>n.toLowerCase());
+$('fitnow').textContent=ok.length?`Tu receta actual sirve para: ${ok.join(', ')}.`:'Tu receta actual todavía no encaja en estas aplicaciones. Carga una receta sugerida y ajústala.';
+$('uses').innerHTML=fits.map((f,i)=>`<article class="use"><h3>${f.u.n}<span class="chip ${f.m.length?'no':'ok'}">${f.m.length?'Por ajustar':'Compatible'}</span></h3><p>${f.u.d}</p><p><b>Cómo se fabrica:</b> ${f.u.pr}</p>${f.m.length?`<ul>${f.m.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}<button class="btn" data-u="${i}">Cargar receta y verla</button></article>`).join('')}
+
+/* ---------- interfaz ---------- */
+const STEPS={
+gel:r=>[`Hidrata ${fmt(st.g)} g de gelatina en ${fmt(st.w,0)} ml de agua fría durante 5 minutos.`,'Calienta a fuego bajo moviendo suave, sin hervir (60 a 70 °C), hasta que todo se disuelva.',`Agrega ${fmt(st.gl)} g de glicerina${extra(st)} y mezcla sin batir.`,'Retira la espuma de la superficie con una cuchara.',`Vierte en el molde de ${st.side} × ${st.side} cm sobre una superficie nivelada.`,`Deja secar a temperatura ambiente unos ${fmt(r.days,0)} días; voltéala a media secada para que no se curve.`],
+agar:r=>[`Dispersa ${fmt(st.g)} g de agar en ${fmt(st.w,0)} ml de agua fría.`,'Calienta hasta hervir y mantén 1 a 2 minutos moviendo hasta que espese.',`Agrega ${fmt(st.gl)} g de glicerina${extra(st)} y mezcla rápido.`,`Vierte de inmediato en el molde de ${st.side} × ${st.side} cm: el agar gelifica cerca de 40 °C.`,'Al gelificar, despega los bordes para que se encoja de forma pareja.',`Seca unos ${fmt(r.days,0)} días; el agar es el que más se encoge.`],
+alm:r=>[`Mezcla en frío ${fmt(st.g)} g de almidón, ${fmt(st.w,0)} ml de agua, ${fmt(st.v,0)} ml de vinagre y ${fmt(st.gl)} g de glicerina.`,`Incorpora${extra(st)||' los aditivos, si usas,'} antes de calentar.`,'Calienta a fuego medio 8 a 10 minutos moviendo sin parar, hasta obtener un gel translúcido.',`Extiende con espátula en el molde de ${st.side} × ${st.side} cm.`,`Seca unos ${fmt(r.days,0)} días en un lugar ventilado.`],
+alg:r=>[`Dispersa ${fmt(st.g)} g de alginato en ${fmt(st.w,0)} ml de agua con batidor o licuadora.`,`Agrega ${fmt(st.gl)} g de glicerina${extra(st)}.`,'Deja reposar 30 minutos para que salgan las burbujas.',`Extiende en el molde de ${st.side} × ${st.side} cm.`,'Rocía o sumerge en solución de cloruro de calcio (5 a 10 %) durante 5 a 10 minutos para que endurezca.',`Enjuaga con agua y deja secar unos ${fmt(r.days,0)} días.`]};
+function donut(svg,items){const tot=items.reduce((s,i)=>s+i[1],0)||1,C=2*Math.PI*44;let off=0;
+svg.innerHTML=`<circle cx="60" cy="60" r="44" fill="none" stroke="var(--line)" stroke-width="18"/>`+items.filter(i=>i[1]>0).map(i=>{const l=i[1]/tot*C,s=`<circle cx="60" cy="60" r="44" fill="none" stroke="${i[2]}" stroke-width="18" stroke-dasharray="${l} ${C-l}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`;off+=l;return s}).join('')+`<text x="60" y="58" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">${fmt(tot,0)} g</text><text x="60" y="74" text-anchor="middle" font-size="10" fill="var(--soft)">total</text>`}
+function dayLabel(r){$('dayl').textContent=shape==='cono'?'Cono · base 4 mm → punta 0 mm':shape==='mio'?(model?`${modelName} · ${fmt(model.dx)} × ${fmt(model.dz)} × ${fmt(model.dy)} cm`:'Mi modelo'):shape!=='lamina'?SH[shape]:day<.02?'Recién vertida':day>.99?`Seca · día ${fmt(r.days,0)}`:`Secando · día ${fmt(day*r.days,0)} de ${fmt(r.days,0)}`}
+function syncBar(){const isS=shape==='lamina';$('play').hidden=!isS;$('day').hidden=!isS;
+const broken=three&&three.specs.some(s=>s.g.visible&&s.broken);$('bend').hidden=!isS||broken;$('reset').hidden=!isS||!broken}
+function meters(r){return[['Flexibilidad',`${Math.round(r.flex*100)} %`,r.flex,'#e0951a'],['Transparencia',`${Math.round(r.tr*100)} %`,r.tr,'#4ea3d8'],['Encogimiento de área',`${Math.round(r.shr*100)} %`,r.shr,'#c8643c'],['Lámina final',`${fmt(r.fs)} cm`,r.fs/st.side,'#7f77dd'],['Grosor seco',`${fmt(r.thick,2)} mm`,Math.min(1,r.thick/2),'#5f8f6e'],['Secado',`≈ ${fmt(r.days,0)} días`,Math.min(1,r.days/10),'#6b7a8a'],['Riesgo de hongos',r.mold>=.6?'Alto':r.mold>=.35?'Medio':'Bajo',r.mold,'#2f9a80']]}
+
+function render(){
+const r=last=calc(st);
+document.querySelectorAll('#bases button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.b===st.base));
+S.forEach(s=>{$('s-'+s.id).value=st[s.id];$('o-'+s.id).textContent=`${fmt(st[s.id])} ${s.u}`;
+$('r-'+s.id).hidden=(s.only&&s.only!==st.base)||(s.id==='fil'&&st.fillT==='none')||(s.id==='pig'&&st.pigT==='none')});
+$('fillT').value=st.fillT;$('pigT').value=st.pigT;$('shape').value=shape;
+$('verdict').textContent=words(r,st);
+$('warn').innerHTML=r.warn.map(w=>`<li>${w}</li>`).join('');
+$('meters').innerHTML=meters(r).map(m=>`<div class="m"><span><em class="dot" style="background:${m[3]}"></em>${m[0]}</span><b>${m[1]}</b><div class="barm"><i style="width:${Math.round(m[2]*100)}%;background:${m[3]}"></i></div></div>`).join('');
+$('steps').innerHTML=STEPS[st.base](r).map(s=>`<li>${s}</li>`).join('');
+donut($('d0'),r.comp);donut($('d1'),r.dry);
+const t0=r.comp.reduce((s,i)=>s+i[1],0),t1=r.dry.reduce((s,i)=>s+i[1],0);
+$('leg').innerHTML=r.comp.map((c,i)=>`<li><i style="background:${c[2]}"></i>${c[0]}<em>${Math.round(c[1]/t0*100)} % → ${Math.round(r.dry[i][1]/t1*100)} %</em></li>`).join('');
+$('mleg').innerHTML=[['#4f5563',`Cadenas de ${r.p.n.toLowerCase()}`],['#f0a81c','Glicerina (plastificante)'],['#3f8fd2','Agua']].concat(r.fil?[[rgb(F[st.fillT].col),F[st.fillT].n]]:[]).concat(st.base==='alg'?[['#2f9a80','Puentes de calcio']]:[]).map(l=>`<li><i style="background:${l[0]}"></i>${l[1]}</li>`).join('');
+renderUses(r);dayLabel(r);
+clearTimeout(render.t);render.t=setTimeout(()=>{rebuild();syncBar()},80);
+renderSamples();
+}
+function renderSamples(){
+if(!samples.length){$('samples').innerHTML='<p class="note">Aún no hay muestras. Ajusta una receta y guárdala para compararla con las demás.</p>';return}
+$('samples').innerHTML=`<table class="stack"><thead><tr><th>Muestra</th><th>Receta</th><th class="n">Flex.</th><th class="n">Transp.</th><th class="n">Encog.</th><th></th></tr></thead><tbody>${samples.map((s,i)=>`<tr><td><span class="sw" style="background:${esc(s.col||'#ccc')}"></span>${esc(s.name)}</td><td>${esc(s.rec)}</td><td class="n">${s.flex} %</td><td class="n">${s.tr} %</td><td class="n">${s.shr} %</td><td>${s.s?`<button class="btn" data-c="${i}">Comparar</button>`:''}</td></tr>`).join('')}</tbody></table>`;
+}
+function store(){try{localStorage.setItem('bio-muestras',JSON.stringify(samples))}catch(e){}}
+function fresh(){if(three)three.specs.forEach(s=>{s.broken=false;s.force=0});syncBar()}
+function setCompare(i){cmpS=i==null?null:samples[i];$('cmp').hidden=!cmpS;if(cmpS)$('cmpB').textContent=cmpS.name;rebuild();fresh();
+if(cmpS){toast(`Comparando con ${cmpS.name}`);window.scrollTo({top:0,behavior:'smooth'})}}
+
+/* ---------- ficha técnica ---------- */
+let fichaData=null;
+/* ficha como imagen PNG */
+async function fichaPNG(){const{r,name,date,img}=fichaData,W=1080,H=1640,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d'),FT='"Inter Tight",system-ui,sans-serif';
+try{await document.fonts.ready}catch(e){}
+x.fillStyle='#ffffff';x.fillRect(0,0,W,H);
+const wrap=(t,mx,lh,y0)=>{const w=t.split(' ');let l='',y=y0;for(const v of w){const tt=l?l+' '+v:v;if(x.measureText(tt).width>mx&&l){x.fillText(l,70,y);l=v;y+=lh}else l=tt}x.fillText(l,70,y);return y+lh};
+x.fillStyle='#1c1c1c';x.font=`600 54px ${FT}`;x.fillText(name,70,110);
+x.fillStyle='#6b6b6b';x.font=`400 26px ${FT}`;x.fillText(`Ficha técnica · ${date}`,70,155);
+let y=190;
+if(img){const im=new Image();await new Promise(res=>{im.onload=res;im.onerror=res;im.src=img});const bw=940,bh=560;x.save();x.beginPath();x.roundRect?x.roundRect(70,y,bw,bh,28):x.rect(70,y,bw,bh);x.clip();x.fillStyle='#f3f3f1';x.fillRect(70,y,bw,bh);
+if(im.width){const sc=Math.max(bw/im.width,bh/im.height),dw=im.width*sc,dh=im.height*sc;x.drawImage(im,70+(bw-dw)/2,y+(bh-dh)/2,dw,dh)}x.restore();y+=bh+60}
+x.fillStyle='#1c1c1c';x.font=`600 36px ${FT}`;y=wrap(words(r,st),940,44,y)+10;
+meters(r).forEach((m,i)=>{const cx=70+(i%3)*320,cy=y+Math.floor(i/3)*130;x.fillStyle='#f6f6f5';x.beginPath();x.roundRect?x.roundRect(cx,cy,300,112,18):x.rect(cx,cy,300,112);x.fill();x.fillStyle=m[3];x.fillRect(cx,cy+20,6,72);
+x.fillStyle='#6b6b6b';x.font=`400 22px ${FT}`;x.fillText(m[0],cx+24,cy+42);x.fillStyle='#1c1c1c';x.font=`600 34px ${FT}`;x.fillText(m[1],cx+24,cy+88)});
+y+=Math.ceil(meters(r).length/3)*130+30;x.fillStyle='#1c1c1c';x.font=`600 26px ${FT}`;x.fillText('Receta',70,y);y+=38;x.font=`400 24px ${FT}`;x.fillStyle='#333';y=wrap(recipeText(st)+`; molde ${st.side} × ${st.side} cm.`,940,34,y)+14;
+const ok=okUses(r);x.fillStyle='#1c1c1c';x.font=`600 26px ${FT}`;x.fillText('Usos compatibles',70,y);y+=38;x.font=`400 24px ${FT}`;x.fillStyle='#333';y=wrap(ok.length?ok.join(', ')+'.':'Ninguno de los sugeridos; ajusta la receta.',940,34,y);
+x.fillStyle='#8a8a87';x.font=`400 20px ${FT}`;x.fillText('Simulador de bioplásticos · Valens · predicción de un modelo didáctico',70,H-50);
+return await new Promise(res=>c.toBlob(res,'image/png'))}
+async function saveFicha(){const b=$('ftSave');b.textContent='Preparando…';
+const fn=`ficha-${(fichaData.name||'muestra').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'muestra'}.png`;
+try{const blob=await fichaPNG();let dl=null;try{if(window.claude&&window.claude.use)dl=await window.claude.use('downloads')}catch(e){}
+if(dl){try{await dl.save({filename:fn,data:blob});b.textContent='Guardada'}catch(e){b.textContent=e&&e.code==='declined'?'Guardar imagen':'No se pudo guardar'}}
+else{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);b.textContent='Guardada'}}
+catch(e){b.textContent='No se pudo guardar'}
+setTimeout(()=>b.textContent='Guardar imagen',2200)}
+function openFicha(){
+const r=last,name=$('sname').value.trim()||`${P[st.base].n} · ${SH[shape]}`,date=new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+let img='';if(three){const{renderer}=three;draw3d();try{img=renderer.domElement.toDataURL('image/jpeg',.88)}catch(e){}}
+fichaData={r,name,date,img};
+const ok=okUses(r);
+$('ficha').innerHTML=`<div class="ft-top"><h2 id="ftTitle">${esc(name)}</h2><small>${date}</small></div>
+${img?`<img class="ft-img" src="${img}" alt="Vista 3D de la muestra">`:''}
+<p style="margin:0;font-family:"Inter Tight",system-ui,sans-serif;font-size:20px;line-height:1.2">${words(r,st)}</p>
+<div class="ft-grid">${meters(r).map(m=>`<div style="box-shadow:inset 3px 0 0 ${m[3]}">${m[0]}<b>${m[1]}</b></div>`).join('')}</div>
+<h3>Receta</h3><ul>${r.comp.map(c=>`<li>${c[0]}: ${fmt(c[1])} ${c[0]==='Agua'||c[0]==='Vinagre'?'ml':'g'}</li>`).join('')}<li>Molde: ${st.side} × ${st.side} cm</li></ul>
+<h3>Usos compatibles</h3><p style="margin:0;font-size:15px">${ok.length?ok.join(', ')+'.':'Ninguno de los sugeridos; ajusta la receta.'}</p>
+${r.warn.length?`<h3>Notas</h3><ul>${r.warn.map(w=>`<li>${w}</li>`).join('')}</ul>`:''}
+<h3>Procedimiento</h3><ol>${STEPS[st.base](r).map(s=>`<li>${s}</li>`).join('')}</ol>
+<p class="note">Predicción de un modelo didáctico; valida con la muestra real. Simulador de bioplásticos · Valens.</p>`;
+$('ficha').dataset.txt=[`FICHA TÉCNICA · ${name} · ${date}`,words(r,st),'',...meters(r).map(m=>`${m[0]}: ${m[1]}`),'','Receta: '+recipeText(st)+`; molde ${st.side} × ${st.side} cm`,'Usos compatibles: '+(ok.join(', ')||'ninguno'),'',...STEPS[st.base](r).map((s,i)=>`${i+1}. ${s}`)].join('\n');
+$('modal').hidden=false;$('modal').scrollTop=0;$('ftClose').focus({preventScroll:true});
+}
+$('ftOpen').addEventListener('click',openFicha);
+$('ftClose').addEventListener('click',()=>{$('modal').hidden=true;$('ftOpen').focus()});
+$('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').hidden=true});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('modal').hidden=true});
+$('ftSave').addEventListener('click',saveFicha);
+$('ftCopy').addEventListener('click',async()=>{const b=$('ftCopy');try{await navigator.clipboard.writeText($('ficha').dataset.txt);b.textContent='Copiado'}catch(e){b.textContent='No se pudo'}setTimeout(()=>b.textContent='Copiar texto',1800)});
+
+/* ---------- eventos ---------- */
+$('bases').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;st.base=b.dataset.b;Object.assign(st,P[st.base].def);fresh();render()});
+S.forEach(s=>$('s-'+s.id).addEventListener('input',e=>{st[s.id]=+e.target.value;fresh();render()}));
+$('fillT').addEventListener('change',e=>{st.fillT=e.target.value;if(st.fillT!=='none'&&!st.fil)st.fil=3;fresh();render()});
+$('pigT').addEventListener('change',e=>{st.pigT=e.target.value;if(st.pigT!=='none'&&!st.pig)st.pig=.5;fresh();render()});
+document.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{st.gl=Math.round(P[st.base].max*st.g*(+b.dataset.p)*10)/10;fresh();render()}));
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{document.querySelector('.side').dataset.tab=b.dataset.t;document.querySelectorAll('.tabs button').forEach(x=>{const on=x===b;x.setAttribute('aria-selected',on);$('t-'+x.dataset.t).hidden=!on})}));
+$('uses').addEventListener('click',e=>{const b=e.target.closest('[data-u]');if(!b)return;const u=USES[+b.dataset.u];Object.assign(st,u.rec);shape=u.sh;day=1;$('day').value=1;fresh();render();toast(`${u.n}: receta cargada.`)});
+let prevShape='lamina';
+$('shape').addEventListener('change',e=>{const v=e.target.value;prevShape=shape;shape=v;if(v==='mio'&&!model){$('upl').textContent='Subir archivo';try{$('file').click()}catch(err){}toast('Sube un archivo STL, OBJ o GLB, o arrástralo al visor.')}if(shape!=='lamina'){day=1;$('day').value=1}$('mioBar').hidden=shape!=='mio';fresh();render()});
+/* ---------- modelo propio: STL, OBJ o GLB ---------- */
+function boxUV(g){const p=g.attributes.position,n=g.attributes.normal,uv=new Float32Array(p.count*2),k=1/12;
+for(let i=0;i<p.count;i++){const ax=Math.abs(n.getX(i)),ay=Math.abs(n.getY(i)),az=Math.abs(n.getZ(i));let u,v;
+if(ay>=ax&&ay>=az){u=p.getX(i);v=p.getZ(i)}else if(ax>=az){u=p.getZ(i);v=p.getY(i)}else{u=p.getX(i);v=p.getY(i)}uv[i*2]=u*k;uv[i*2+1]=v*k}
+g.setAttribute('uv',new THREE.BufferAttribute(uv,2))}
+function prepModel(){if(!modelRaw)return;const T=THREE,sc=+$('unit').value,geos=modelRaw.geos.map(g=>{let c=g.clone();c.applyMatrix4(new T.Matrix4().makeScale(sc,sc,sc));c.applyMatrix4(new T.Matrix4().makeRotationX(-Math.PI/2*modelRaw.rot));return c});
+const bb=new T.Box3();geos.forEach(g=>{g.computeBoundingBox();bb.union(g.boundingBox)});const c=new T.Vector3();bb.getCenter(c);
+geos.forEach(g=>{g.translate(-c.x,-bb.min.y,-c.z);g.computeVertexNormals();boxUV(g)});
+const sz=new T.Vector3();bb.getSize(sz);model={geos,dx:sz.x,dy:sz.y,dz:sz.z};
+if(Math.max(sz.x,sz.y,sz.z)>80)toast('El modelo mide más de 80 cm; revisa las unidades.');else if(Math.max(sz.x,sz.y,sz.z)<1)toast('El modelo mide menos de 1 cm; revisa las unidades.')}
+function loadModel(file){const T=THREE,ext=file.name.split('.').pop().toLowerCase(),rd=new FileReader();
+const done=obj=>{const geos=[];let tris=0;obj.updateMatrixWorld(true);obj.traverse(m=>{if(m.isMesh&&m.geometry){let g=m.geometry.clone();if(g.index)g=g.toNonIndexed();g.applyMatrix4(m.matrixWorld);['color','uv','uv2','tangent','skinIndex','skinWeight'].forEach(a=>g.deleteAttribute&&g.deleteAttribute(a));tris+=g.attributes.position.count/3;geos.push(g)}});
+if(!geos.length){toast('No encontré geometría en ese archivo.');return}
+const pre=Math.max(...geos.map(g=>{g.computeBoundingBox();const s=new T.Vector3();g.boundingBox.getSize(s);return Math.max(s.x,s.y,s.z)}));
+$('unit').value=pre>60?'0.1':pre<1.5?'100':'1';
+modelRaw={geos,rot:ext==='stl'?1:0};modelName=file.name.replace(/\.[^.]+$/,'').slice(0,24);prepModel();
+shape='mio';$('shape').value='mio';$('mioBar').hidden=false;$('upl').textContent='Cambiar archivo';fresh();render();toast(tris>400000?`Modelo cargado (${Math.round(tris/1000)} mil triángulos, puede ir lento).`:'Modelo cargado con tu receta.')};
+const fail=()=>toast('No pude leer el archivo. Usa STL, OBJ o GLB.');
+rd.onerror=fail;
+rd.onload=()=>{try{
+if(ext==='stl'){const g=new T.STLLoader().parse(rd.result);done(new T.Mesh(g))}
+else if(ext==='obj'){done(new T.OBJLoader().parse(new TextDecoder().decode(rd.result)))}
+else if(ext==='glb'||ext==='gltf'){new T.GLTFLoader().parse(rd.result,'',gl=>done(gl.scene),fail)}
+else fail()}catch(err){fail()}};
+rd.readAsArrayBuffer(file)}
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(f)loadModel(f);e.target.value=''});
+$('upl').addEventListener('click',()=>$('file').click());
+$('unit').addEventListener('change',()=>{prepModel();rebuild();dayLabel(last)});
+$('rot').addEventListener('click',()=>{if(!modelRaw)return;modelRaw.rot=(modelRaw.rot+1)%4;prepModel();rebuild();dayLabel(last)});
+view.addEventListener('dragover',e=>e.preventDefault());
+view.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)loadModel(f)});
+$('day').addEventListener('input',e=>{day=+e.target.value;dayLabel(last)});
+let playing=0;$('play').addEventListener('click',()=>{fresh();day=0;playing=performance.now()});
+$('hq').addEventListener('click',()=>{if(!three||!three.comp){toast('La calidad alta no está disponible en este dispositivo.');return}three.hq=!three.hq;$('hq').setAttribute('aria-pressed',three.hq);$('hq').textContent=three.hq?'Alta':'Media'});
+$('ruler').addEventListener('click',()=>{ruler=!ruler;$('ruler').setAttribute('aria-pressed',ruler);if(!ruler)$('meas').hidden=true;else{idle=0;cam.el=Math.max(cam.el,.95)}});
+$('light').addEventListener('click',()=>{light=!light;$('light').setAttribute('aria-pressed',light);view.classList.toggle('lit',light)});
+const bend=$('bend');
+bend.addEventListener('pointerdown',e=>{e.preventDefault();if(day<.85){toast('Todavía está húmeda: sécala antes de doblarla.');return}holding=true;idle=0;bend.setPointerCapture(e.pointerId)});
+['pointerup','pointercancel','lostpointercapture'].forEach(ev=>bend.addEventListener(ev,()=>holding=false));
+bend.addEventListener('contextmenu',e=>e.preventDefault());
+bend.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&day>=.85){e.preventDefault();holding=true}});
+bend.addEventListener('keyup',()=>holding=false);
+$('reset').addEventListener('click',()=>{fresh()});
+$('cmpX').addEventListener('click',()=>setCompare(null));
+$('samples').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(b)setCompare(+b.dataset.c)});
+$('save').addEventListener('click',()=>{const r=last;const name=$('sname').value.trim()||`Muestra ${samples.length+1}`;
+samples.push({name,rec:recipeText(st),s:{...st},col:rgb(r.col),flex:Math.round(r.flex*100),tr:Math.round(r.tr*100),shr:Math.round(r.shr*100)});$('sname').value='';store();renderSamples();toast(`${name} guardada.`)});
+$('clear').addEventListener('click',()=>{samples=[];store();setCompare(null);renderSamples()});
+$('copy').addEventListener('click',async()=>{const t=['Muestra\tReceta\tFlexibilidad %\tTransparencia %\tEncogimiento %',...samples.map(s=>[s.name,s.rec,s.flex,s.tr,s.shr].join('\t'))].join('\n');
+const b=$('copy');try{await navigator.clipboard.writeText(t);b.textContent='Copiado'}catch(e){b.textContent='No se pudo'}setTimeout(()=>b.textContent='Copiar tabla',1800)});
+
+initThree();if(three&&!three.comp){$('hq').setAttribute('aria-pressed','false');$('hq').textContent='Media'}render();rebuild();syncBar();
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const bgDay=three?new three.T.Color('#f3f3f1'):null,bgNight=three?new three.T.Color('#262625'):null;
+let prev=performance.now(),lit=0;
+function loop(now){
+const dt=Math.min(.05,(now-prev)/1000);prev=now;idle+=dt;
+if(playing){const k=(now-playing)/4500;day=Math.min(1,k);$('day').value=day;dayLabel(last);if(k>=1)playing=0}
+if(three){const{renderer,scene,camera,specs,hemi,key,rim,floor,box,boxTop,boxLight,walls}=three;
+lit=lerp(lit,light?1:0,Math.min(1,dt*5));
+const HQ=three.hq&&three.comp;scene.background.copy(bgDay).lerp(bgNight,lit);if(HQ)scene.background.convertSRGBToLinear();if(three.cplane)three.cplane.material.opacity=HQ?.85:.62;hemi.intensity=lerp(.35,.1,lit);key.intensity=lerp(.9,.25,lit);rim.intensity=lerp(.45,.2,lit);floor.material.opacity=lerp(.07,.2,lit);scene.environment&&specs.forEach(s=>s.mat.envMapIntensity=lerp(1,.35,lit));
+const act=specs.filter(s=>s.g.visible);act.forEach(s=>s.frame(dt,day));
+const sz=act[0]?act[0].size():{w:15,h:2},gap=sz.w*.62+1.2,two=act.length>1;
+specs[0].g.position.x=two?-gap:0;specs[1].g.position.x=two?gap:0;
+placeRuler();
+const isS=shape==='lamina';
+box.visible=isS&&lit>.02;box.scale.set(two?gap*2+sz.w+3:st.side+3,1,st.side+3);boxTop.color.setRGB(1,.97,.92).multiplyScalar(lerp(.6,1,lit));boxLight.position.set(0,-2,0);boxLight.intensity=isS?lit*1.4:0;
+const mold=isS&&day<.98&&!two,s=st.side,t=.5,h=.9;
+[[-(s/2+t/2),0,t,s+2*t],[s/2+t/2,0,t,s+2*t],[0,-(s/2+t/2),s,t],[0,s/2+t/2,s,t]].forEach((c,i)=>{walls[i].visible=mold;walls[i].position.set(c[0],h/2+.05,c[1]);walls[i].scale.set(c[2],h,c[3])});
+if(!reduce&&idle>4&&!holding&&!ruler)cam.az+=dt*.12;
+const R=(Math.max(sz.w*(two?2.4:1.15),sz.h*1.6)*1.9+6)*(cam.zoom||1);cam.R=lerp(cam.R,R,Math.min(1,dt*4));cam.ty=lerp(cam.ty,sz.h*.4,Math.min(1,dt*4));
+camera.position.set(cam.R*Math.cos(cam.el)*Math.sin(cam.az),cam.ty+cam.R*Math.sin(cam.el),cam.R*Math.cos(cam.el)*Math.cos(cam.az));camera.lookAt(0,cam.ty,0);
+let f=0;act.forEach(s=>f=Math.max(f,s.force));$('force').style.width=Math.round(f*100)+'%';
+draw3d()}
+if(!$('t-micro').hidden)micro(now/1000);
+requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
