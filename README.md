@@ -2,7 +2,7 @@
 
 Experimenta con recetas virtuales de bioplásticos y compáralas con tus muestras reales.
 
-**[Abrir el simulador](https://TU-USUARIO.github.io/bioplasticos/)** · **[Versión en realidad aumentada](https://TU-USUARIO.github.io/bioplasticos/ar/)**
+**[Abrir el simulador](https://vicvalens.github.io/bioplasticos/)** · **[Versión en realidad aumentada](https://vicvalens.github.io/bioplasticos/ar/)**
 
 ## Qué es
 
