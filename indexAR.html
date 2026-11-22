@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="Valens">
+<title>Simulador de bioplásticos · AR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe-v1.5.0.min.js"></script>
+<script>window.AFRAME||document.write('<script src="https://aframe.io/releases/1.5.0/aframe.min.js"><\/script>')</script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 "Inter Tight",system-ui,sans-serif;color:#1c1c1c}
+#ov{position:fixed;inset:0;pointer-events:none;z-index:10}
+#ui{pointer-events:auto;position:absolute;left:10px;right:10px;bottom:10px;max-width:560px;margin:0 auto;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-radius:24px;padding:14px 16px 10px;box-shadow:0 8px 28px rgba(0,0,0,.14)}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+h1{font-size:18px;font-weight:600;letter-spacing:-.02em;margin:0}
+#toggle{border:0;background:none;font:600 13px "Inter Tight",sans-serif;color:#6b6b6b;cursor:pointer;min-height:32px}
+#info{margin:2px 0 10px;color:#6b6b6b;font-size:14px}
+#imp{margin:0 0 10px;font-size:13px;color:#7a4a05;background:#fdf0d8;border-radius:999px;padding:5px 12px;display:inline-block}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+label{display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:#6b6b6b;margin-bottom:3px}
+label output{color:#b56f06}
+select{width:100%;min-height:40px;font:500 15px "Inter Tight",sans-serif;border:1px solid #e6e5e3;border-radius:14px;background:#f6f6f5;padding:0 10px;color:#1c1c1c}
+input[type=range]{width:100%;accent-color:#e0951a;height:30px;margin:0}
+.row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.row button,.row a{min-height:40px;border:1px solid #e6e5e3;border-radius:999px;background:#fff;padding:0 14px;font:600 14px "Inter Tight",sans-serif;cursor:pointer;color:#1c1c1c;text-decoration:none;display:inline-flex;align-items:center}
+.row button[aria-pressed=true]{background:#5c5c59;color:#fff;border-color:#5c5c59}
+.row a{margin-left:auto}
+#hint{font-size:13px;color:#6b6b6b;margin:8px 0 0}
+.foot{font-size:12px;color:#9a9a96;margin-top:6px}.foot a{color:inherit}
+#ui.min .body{display:none}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #e0951a;outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="ov"><div id="ui">
+<div class="top"><h1>Simulador de bioplásticos · AR</h1><button id="toggle" aria-expanded="true">Ocultar</button></div>
+<p id="info"></p>
+<div class="body">
+<span id="imp" hidden>Receta traída del simulador</span>
+<div class="grid">
+<div><label for="base">Base</label><select id="base"><option value="gel">Gelatina</option><option value="agar">Agar</option><option value="alm">Almidón de maíz</option><option value="alg">Alginato de sodio</option></select></div>
+<div><label for="shape">Forma</label><select id="shape"><option value="lamina">Lámina</option><option value="maceta">Maceta</option><option value="pantalla">Pantalla de lámpara</option><option value="boton">Botón</option><option value="cartera">Cartera</option><option value="cono">Cono de grosores</option></select></div>
+<div><label for="fill">Relleno</label><select id="fill"></select></div>
+<div><label for="pig">Pigmento</label><select id="pig"></select></div>
+</div>
+<label for="gl" style="margin-top:8px">Glicerina<output id="glo"></output></label>
+<input type="range" id="gl" min="0" max="20" step="0.1">
+<div class="row"><button id="spin" aria-pressed="true">Girar</button><button id="big" aria-pressed="false">Ver ×3</button><a href="../">Volver al simulador</a></div>
+<p id="hint">En Android con Chrome toca AR, apunta a una mesa y toca la pantalla para colocar la pieza a tamaño real. En visores Quest toca VR.</p>
+<p class="foot"><a href="https://github.com/vicvalens">Valens</a> · v1.21</p>
+</div>
+</div></div>
+
+<script>
+{
+const P={gel:{n:'Gelatina',def:{g:12,w:60,gl:3.6,v:0},max:.6,c:.2,shr:.3,tr:.85,col:[228,160,60],rough:.35},agar:{n:'Agar',def:{g:2,w:50,gl:1.5,v:0},max:2.5,c:.04,shr:.45,tr:.78,col:[222,212,176],rough:.45},alm:{n:'Almidón de maíz',def:{g:10,w:60,gl:3,v:5},max:.5,c:.17,shr:.22,tr:.42,col:[236,232,220],rough:.75},alg:{n:'Alginato de sodio',def:{g:3,w:100,gl:2,v:0},max:1,c:.03,shr:.35,tr:.7,col:[214,222,206],rough:.4}};
+const F={none:{n:'Ninguno',col:null},cafe:{n:'Café molido',col:[78,48,30],size:.7},huevo:{n:'Cáscara de huevo',col:[246,240,228],part:'escama'},naranja:{n:'Cáscara de naranja',col:[232,138,40],part:'oval',size:1.3},aserrin:{n:'Aserrín',col:[188,148,98],part:'fibra',size:1.2}};
+const G={none:{n:'Ninguno',col:null},espi:{n:'Espirulina',col:[34,110,92]},curc:{n:'Cúrcuma',col:[232,172,18]},jam:{n:'Jamaica',col:[140,26,78]},bet:{n:'Betabel',col:[170,30,70]},carb:{n:'Carbón vegetal',col:[30,30,32]}};
+const st={base:'gel',g:12,w:60,gl:3.6,v:0,fil:0,fillT:'none',pig:0,pigT:'none',side:15,shape:'lamina'};
+let imported=false;
+try{const q=new URLSearchParams(location.search).get('r');if(q){const o=JSON.parse(decodeURIComponent(escape(atob(q))));
+(o.ing||[]).forEach(i=>{if(i.t==='f')F[i.id]={n:i.n,col:i.c,part:i.p,rig:i.r,op:i.o,abs:i.a,size:i.z};else if(i.t==='p')G[i.id]={n:i.n,col:i.c,pa:i.i}});
+Object.assign(st,o.s||{});if(o.sh)st.shape=o.sh;if(!P[st.base])st.base='gel';if(!F[st.fillT])st.fillT='none';if(!G[st.pigT])st.pigT='none';imported=true}}catch(e){}
+window.__bio={P,F,G,st,imported};
+
+const cl=(x,a,b)=>Math.max(a,Math.min(b,x)),lerp=(a,b,t)=>a+(b-a)*t,rgb=c=>`rgb(${c.map(Math.round).join(',')})`;
+function rnd(s){return()=>(s=(s*16807)%2147483647)/2147483647}
+function hash(x,y){let h=(Math.imul(x,374761393)+Math.imul(y,668265263))|0;h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
+function vn(x,y){const xi=Math.floor(x),yi=Math.floor(y);let xf=x-xi,yf=y-yi;xf=xf*xf*(3-2*xf);yf=yf*yf*(3-2*yf);return lerp(lerp(hash(xi,yi),hash(xi+1,yi),xf),lerp(hash(xi,yi+1),hash(xi+1,yi+1),xf),yf)}
+function fbm(x,y){return vn(x,y)*.55+vn(x*2.1+17,y*2.1+5)*.3+vn(x*4.3+3,y*4.3+31)*.15}
+
+/* mismo modelo que el simulador principal */
+function calc(s){const p=P[s.base],Fi=F[s.fillT]||F.none,Gi=G[s.pigT]||G.none,fil=Fi.col?s.fil:0,pg=Gi.col?s.pig:0,g=s.g,w=s.w;
+const f=s.gl/g/p.max,cr=(g/w)/p.c,fr=fil/g;
+let flex=Math.min(f,1.3)*.92+.04-fr*.25*(Fi.rig??1)-Math.max(0,cr-1.5)*.15-Math.max(0,.6-cr)*.3;
+let tr=p.tr-Math.min(fr,1.5)*.45*(Fi.op??1);
+const absF=fil?(Fi.abs??.5)*Math.min(fr,1):0,psz=Fi.size??1;flex-=fil?Math.max(0,psz-1)*Math.min(fr,1)*.12:0;
+if(s.base==='alm'&&s.v<2){flex-=.12;tr-=.1}
+flex=cl(flex,0,1);tr=cl(tr,.04,.95);
+const shr=p.shr*(1-Math.min(fr,1)*(Fi.part==='fibra'?.65:.45))+(f>1?.04:0)+absF*.05,fs=s.side*Math.sqrt(1-shr),solids=g+s.gl+fil+pg,thick=solids/1.25/(fs*fs)*10;
+const PA=Gi.pa??({espi:70,curc:55,jam:45,bet:50,carb:220}[s.pigT]||0);
+const pc=s.pigT==='jam'?(s.base==='alm'&&s.v>=2?[196,28,64]:[104,32,96]):({espi:[18,92,88],curc:[232,160,0],bet:[160,18,78],carb:[24,24,26]}[s.pigT]||Gi.col||p.col);
+const ac=pg?PA*pg/solids:0,tint=t=>{const mx=1-Math.exp(-ac*t);return{mx,col:p.col.map((b,i)=>(b*(1-mx)+pc[i]*mx)*(1-.22*mx))}};
+const T0=tint(thick);if(pg){tr=s.pigT==='carb'?tr*Math.exp(-ac*thick*.8):tr-.18*T0.mx;tr=cl(tr,.04,.95)}
+return{p,flex,tr,col:T0.col,mix:T0.mx,tint,fr,fil,pg,fs,thick,roughAdd:fil?psz*Math.min(fr,1)*.25:0}}
+function words(r){return(r.flex<.2?'Rígida y quebradiza':r.flex<.45?'Semirrígida':r.flex<.75?'Flexible, tipo cuero delgado':'Muy elástica, tipo goma')+', '+(r.tr>.62?'translúcida':r.tr>.33?'semiopaca':'opaca')}
+
+function makeTex(r,s,col){const N=256,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d'),id=x.createImageData(N,N);
+const mott={gel:.05,agar:.07,alm:.14,alg:.08}[s.base];
+for(let j=0;j<N;j++)for(let i=0;i<N;i++){const m=1+(fbm(i/24,j/24)-.5)*mott*2,k=(j*N+i)*4;id.data[k]=cl(col[0]*m,0,255);id.data[k+1]=cl(col[1]*m,0,255);id.data[k+2]=cl(col[2]*m,0,255);id.data[k+3]=255}
+x.putImageData(id,0,0);const R=rnd(11),Fi=F[s.fillT]||F.none;
+if(r.fil&&Fi.col){const part=Fi.part||'polvo',n=Math.round(Math.min(r.fr,1.5)*500);for(let i=0;i<n;i++){const z=(.5+R()*1.3)*(Fi.size??1);x.fillStyle=rgb(Fi.col.map(v=>cl(v*(.75+R()*.4),0,255)));x.save();x.translate(R()*N,R()*N);x.rotate(R()*3);x.beginPath();
+if(part==='fibra')x.rect(-z*1.8,-z*.45,z*3.6,z*.9);else if(part==='oval')x.ellipse(0,0,z*1.7,z*.8,0,0,7);else if(part==='escama'){x.moveTo(-z,-z*.6);x.lineTo(z*1.1,-z*.3);x.lineTo(z*.4,z);x.lineTo(-z*.8,z*.5)}else x.arc(0,0,z*.8,0,7);x.fill();x.restore()}}
+const t=new THREE.CanvasTexture(c);if('colorSpace'in t)t.colorSpace=THREE.SRGBColorSpace;else t.encoding=THREE.sRGBEncoding;t.anisotropy=4;return t}
+
+if(window.AFRAME)AFRAME.registerComponent('bioplastico',{
+schema:{v:{default:0},spin:{default:true},big:{default:false}},
+init(){this.holder=new THREE.Group();this.el.object3D.add(this.holder)},
+update(old){if(old&&old.v===this.data.v&&old.big===this.data.big&&old.spin!==this.data.spin)return;
+const s=st,T=THREE,r=calc(s);
+this.holder.children.slice().forEach(o=>{this.holder.remove(o);o.traverse(n=>{if(n.geometry)n.geometry.dispose()})});
+(this.mats||[]).forEach(m=>{if(m.map)m.map.dispose();m.dispose()});
+const mk=(col,vc)=>new T.MeshPhysicalMaterial({map:makeTex(r,s,col),vertexColors:!!vc,transparent:true,opacity:1-r.tr*.6*(1-.5*r.mix),roughness:Math.min(1,r.p.rough+r.roughAdd),clearcoat:.5,clearcoatRoughness:.15,side:T.DoubleSide});
+const m=mk(r.col);this.mats=[m];
+const g=new T.Group(),V=(a,b)=>new T.Vector2(a,b);
+const add=(geo,mat=m)=>{const me=new T.Mesh(geo,mat);me.castShadow=true;me.receiveShadow=true;g.add(me);return me};
+const norm=(geo,sz)=>{const uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/sz+.5,uv.getY(i)/sz+.5)};
+const sh=s.shape;
+if(sh==='lamina'){const L=r.fs,geo=new T.PlaneGeometry(L,L,40,40);geo.rotateX(-Math.PI/2);const p=geo.attributes.position;
+for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),e=Math.min(L/2-Math.abs(x),L/2-Math.abs(z))/L;p.setY(i,.15+(fbm(x*.4+9,z*.4)-.5)*.25+Math.max(0,.12-e)**2*40)}geo.computeVertexNormals();add(geo)}
+else if(sh==='maceta')add(new T.LatheGeometry([V(.01,0),V(2.6,0),V(4,7.5),V(3.8,7.65),V(3.6,7.5),V(2.3,.4),V(.01,.4)],64));
+else if(sh==='pantalla'){add(new T.LatheGeometry([V(7.5,0),V(5.5,10),V(5.35,10),V(7.35,0),V(7.5,0)],72));
+const metal=new T.MeshStandardMaterial({color:0x2a2a2a,metalness:.7,roughness:.35});
+[[7.42,0],[5.42,10]].forEach(([rr,y])=>{const t=add(new T.TorusGeometry(rr,.07,8,96),metal);t.rotation.x=Math.PI/2;t.position.y=y});
+const b=add(new T.SphereGeometry(1.3,32,16),new T.MeshStandardMaterial({color:0xffffff,emissive:0xfff0d0,emissiveIntensity:1.5}));b.position.y=4.5;b.castShadow=false;
+const pl=new T.PointLight(0xffe6b8,1,.5);pl.position.y=4.5;g.add(pl)}
+else if(sh==='boton'){const shp=new T.Shape();shp.absarc(0,0,2,0,Math.PI*2,false);
+[[.55,.55],[-.55,.55],[.55,-.55],[-.55,-.55]].forEach(([x,y])=>{const h=new T.Path();h.absarc(x,y,.24,0,Math.PI*2,true);shp.holes.push(h)});
+const geo=new T.ExtrudeGeometry(shp,{depth:.35,bevelEnabled:true,bevelThickness:.12,bevelSize:.12,bevelSegments:4,curveSegments:64});geo.rotateX(-Math.PI/2);geo.translate(0,.12,0);norm(geo,4);add(geo)}
+else if(sh==='cono'){const H=9,geo=new T.LatheGeometry([V(.01,0),V(6,0),V(.01,H)],96),p=geo.attributes.position,cc=new Float32Array(p.count*3),bc=r.p.col;
+for(let i=0;i<p.count;i++){const tc=r.tint(4*(1-p.getY(i)/H)).col;for(let k=0;k<3;k++)cc[i*3+k]=Math.min(8,Math.pow(tc[k]/Math.max(bc[k],8),2.2))}
+geo.setAttribute('color',new T.BufferAttribute(cc,3));const cm=mk(bc,true);this.mats.push(cm);add(geo,cm)}
+else{const rr=(w,h,k)=>{const q=new T.Shape();q.moveTo(-w/2+k,-h/2);q.lineTo(w/2-k,-h/2);q.quadraticCurveTo(w/2,-h/2,w/2,-h/2+k);q.lineTo(w/2,h/2-k);q.quadraticCurveTo(w/2,h/2,w/2-k,h/2);q.lineTo(-w/2+k,h/2);q.quadraticCurveTo(-w/2,h/2,-w/2,h/2-k);q.lineTo(-w/2,-h/2+k);q.quadraticCurveTo(-w/2,-h/2,-w/2+k,-h/2);return q};
+const b=new T.ExtrudeGeometry(rr(18,10,1.2),{depth:.4,bevelEnabled:true,bevelThickness:.1,bevelSize:.1,bevelSegments:3,curveSegments:16});b.rotateX(-Math.PI/2);b.translate(0,.1,0);norm(b,18);add(b);
+const f=new T.Shape();f.moveTo(-9,5);f.lineTo(9,5);f.lineTo(9,1.8);f.quadraticCurveTo(0,-4.5,-9,1.8);f.closePath();
+const fg=new T.ExtrudeGeometry(f,{depth:.22,bevelEnabled:true,bevelThickness:.06,bevelSize:.06,bevelSegments:2,curveSegments:24});fg.rotateX(-Math.PI/2);fg.translate(0,.62,0);norm(fg,18);add(fg)}
+g.scale.setScalar(this.data.big?.03:.01);g.position.y=.0006;this.holder.add(g);
+document.getElementById('info').textContent=`${words(r)} · flexibilidad ${Math.round(r.flex*100)} % · transparencia ${Math.round(r.tr*100)} %`},
+tick(t,dt){if(this.data.spin&&!this.el.sceneEl.is('ar-mode'))this.holder.rotation.y+=dt*.0004}
+});
+}
+</script>
+
+<a-scene id="scene" renderer="antialias:true;colorManagement:true" shadow="type:pcfsoft"
+ webxr="optionalFeatures: hit-test, dom-overlay; overlayElement: #ov"
+ ar-hit-test="target:#pieza; type:footprint" background="color:#f3f3f1">
+<a-entity light="type:hemisphere;color:#ffffff;groundColor:#d9d7d2;intensity:.9"></a-entity>
+<a-entity light="type:directional;intensity:1.1;castShadow:true;shadowCameraTop:.6;shadowCameraBottom:-.6;shadowCameraLeft:-.6;shadowCameraRight:.6;shadowMapWidth:1024;shadowMapHeight:1024" position="-.6 2 .7"></a-entity>
+<a-entity light="type:directional;intensity:.4" position=".8 1 -1"></a-entity>
+<a-cylinder hide-on-enter-ar radius=".32" height="1" position="0 .5 -.45" color="#ffffff" shadow="receive:true" segments-radial="64"></a-cylinder>
+<a-plane hide-on-enter-ar rotation="-90 0 0" width="20" height="20" color="#ecebe8" shadow="receive:true"></a-plane>
+<a-entity id="pieza" position="0 1.001 -.45" bioplastico>
+<a-plane rotation="-90 0 0" position="0 .0005 0" width=".7" height=".7" material="shader:shadow;opacity:.28" shadow="receive:true"></a-plane>
+</a-entity>
+<a-entity id="rig" position="0 1.32 .02" rotation="-30 0 0"><a-entity camera look-controls></a-entity></a-entity>
+</a-scene>
+
+<script>
+{
+const{P,F,G,st,imported}=window.__bio,$=id=>document.getElementById(id);
+const el=$('pieza'),scene=$('scene'),ui=$('ui');let ver=0;
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('fill').innerHTML=Object.entries(F).map(([k,f])=>`<option value="${k}">${esc(f.n)}</option>`).join('');
+$('pig').innerHTML=Object.entries(G).map(([k,f])=>`<option value="${k}">${esc(f.n)}</option>`).join('');
+function sync(){$('base').value=st.base;$('shape').value=st.shape;$('fill').value=st.fillT;$('pig').value=st.pigT;
+const mx=Math.max(1,Math.round(P[st.base].max*st.g*1.6*10)/10);$('gl').max=mx;$('gl').value=st.gl;$('glo').textContent=`${st.gl.toLocaleString('es-MX',{maximumFractionDigits:1})} g`}
+const upd=()=>{sync();el.setAttribute('bioplastico','v',++ver)};
+$('imp').hidden=!imported;
+$('base').addEventListener('change',e=>{st.base=e.target.value;Object.assign(st,P[st.base].def);upd()});
+$('shape').addEventListener('change',e=>{st.shape=e.target.value;upd()});
+$('fill').addEventListener('change',e=>{st.fillT=e.target.value;if(st.fillT!=='none'&&!st.fil)st.fil=3;upd()});
+$('pig').addEventListener('change',e=>{st.pigT=e.target.value;if(st.pigT!=='none'&&!st.pig)st.pig=.5;upd()});
+$('gl').addEventListener('input',e=>{st.gl=+e.target.value;upd()});
+for(const id of['spin','big'])$(id).addEventListener('click',e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',on);el.setAttribute('bioplastico',id,on)});
+$('toggle').addEventListener('click',e=>{const min=ui.classList.toggle('min');e.currentTarget.textContent=min?'Mostrar':'Ocultar';e.currentTarget.setAttribute('aria-expanded',!min)});
+ui.addEventListener('beforexrselect',e=>e.preventDefault());
+const rig=$('rig');
+scene.addEventListener('enter-vr',()=>{rig.setAttribute('rotation','0 0 0');rig.setAttribute('position','0 0 .3');if(scene.is('ar-mode')){scene.removeAttribute('background');scene.object3D.background=null;$('hint').textContent='Apunta a una superficie plana y toca para colocar la pieza.'}});
+scene.addEventListener('exit-vr',()=>{scene.setAttribute('background','color:#f3f3f1');rig.setAttribute('rotation','-30 0 0');rig.setAttribute('position','0 1.32 .02')});
+sync();if(!window.AFRAME)$('info').textContent='No se pudo cargar el visor 3D. Revisa tu conexión a internet y recarga la página.';else if(scene.hasLoaded)upd();else scene.addEventListener('loaded',upd);
+}
+</script>
+</body>
+</html>
