@@ -53,7 +53,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 <input type="range" id="gl" min="0" max="20" step="0.1">
 <div class="row"><button id="ql" class="ql" hidden>Ver en mi espacio</button><button id="spin" aria-pressed="true">Girar</button><button id="big" aria-pressed="false">Ver ×3</button><a href="../">Volver al simulador</a></div>
 <p id="hint">En Android con Chrome toca AR, apunta a una mesa y toca la pantalla para colocar la pieza a tamaño real. En visores Quest toca VR.</p>
-<p class="foot"><a href="https://github.com/vicvalens">Valens</a> · v1.22</p>
+<p class="foot"><a href="https://github.com/vicvalens">Valens</a> · v1.23</p>
 </div>
 </div></div>
 <model-viewer id="mv" ar ar-modes="quick-look" ar-scale="fixed" loading="eager" aria-hidden="true"></model-viewer>
@@ -204,7 +204,7 @@ dv.setUint32(12,js.length,true);dv.setUint32(16,0x4E4F534A,true);out.set(js,20);
 return new Blob([out],{type:'model/gltf-binary'})}
 
 /* Quick Look en iPhone y iPad */
-const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1),mv=$('mv'),qb=$('ql');let qlT=0,qlUrl=null;
+const qa=document.createElement('a'),isIOS=!!(qa.relList&&qa.relList.supports&&qa.relList.supports('ar'))&&/iP(hone|ad|od)|Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1,mv=$('mv'),qb=$('ql');let qlT=0,qlUrl=null;
 function prepQL(){if(!isIOS||!window.AFRAME)return;clearTimeout(qlT);qb.disabled=true;qb.textContent='Preparando…';qlT=setTimeout(async()=>{try{const c=el.components.bioplastico;if(!c)return;
 const blob=await toGLB(c.holder);if(qlUrl)URL.revokeObjectURL(qlUrl);qlUrl=URL.createObjectURL(blob);mv.src=qlUrl}catch(e){qb.textContent='No disponible'}},450)}
 mv.addEventListener('load',()=>{qb.disabled=false;qb.textContent='Ver en mi espacio'});
